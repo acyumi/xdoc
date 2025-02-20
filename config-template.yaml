@@ -1,0 +1,10 @@
+app-id: "cli_xxx"
+app-secret: "xxx"
+url: "https://xxx.feishu.cn/wiki/xxx"
+dir: "/xxx/docs"
+list-only: false
+quit-automatically: false
+file:
+  extensions:
+    docx: "docx"
+    doc: "docx"
