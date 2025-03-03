@@ -6,5 +6,5 @@ list-only: false
 quit-automatically: false
 file:
   extensions:
-    docx: "docx"
-    doc: "docx"
+    docx: "docx" # docx 或 pdf
+    doc: "docx"  # docx 或 pdf

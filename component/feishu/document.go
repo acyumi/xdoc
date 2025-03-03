@@ -1,30 +1,27 @@
 package feishu
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
+	"io"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"time"
 
-	teaProgress "github.com/charmbracelet/bubbles/progress"
-	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
-	"github.com/samber/lo"
 	"github.com/samber/oops"
+	"github.com/xlab/treeprint"
 
-	"acyumi.com/feishu-doc-exporter/component/argument"
-	"acyumi.com/feishu-doc-exporter/component/progress"
+	"github.com/acyumi/doc-exporter/component/argument"
+	"github.com/acyumi/doc-exporter/component/cloud"
+	"github.com/acyumi/doc-exporter/component/constant"
 )
 
 type DocumentInfo struct {
-	Name          string `json:"name"`          // 文档名
-	Type          string `json:"type"`          // 文档类型
-	Token         string `json:"token"`         // 文档token
-	FileExtension string `json:"fileExtension"` // 文件扩展名，如果是目录type=folder，则为空
-	CanDownload   bool   `json:"canDownload"`   // 是否可下载
+	Name          string           `json:"name"          yaml:"name" bson:"name" gorm:"dddd"` // 文档名
+	Type          constant.DocType `json:"type"          yaml:"type" bson:"name" gorm:"dddd"` // 文档类型
+	Token         string           `json:"token"`                                             // 文档token
+	FileExtension constant.FileExt `json:"fileExtension"`                                     // 文件扩展名，如果是目录type=folder，则为空
+	CanDownload   bool             `json:"canDownload"`                                       // 是否可下载
 
 	DownloadDirectly bool   `json:"downloadDirectly"` // 是否使用【下载文件】API直接下载
 	URL              string `json:"url"`              // 在浏览器中查看的链接
@@ -64,26 +61,26 @@ func cleanName(name string) string {
 	return name
 }
 
-func setFileExtension(di *DocumentNode) {
+func setFileExtension(di *DocumentNode, args *argument.Args) {
 	// 如果是file，则需要通过文件名获取文件类型，再继续下成的switch处理
-	if di.Type == "file" {
+	if di.Type == constant.DocTypeFile {
 		di.DownloadDirectly = true
 		ext := filepath.Ext(di.Name)
 		if len(ext) > 0 {
-			e := ext[1:]
+			e := constant.DocType(ext[1:])
 			switch e {
-			case "xlsx", "xls":
-				di.Type = "sheet"
+			case constant.DocTypeXlsx, constant.DocTypeXls:
+				di.Type = constant.DocTypeSheet
 			default:
 				di.Type = e
 			}
 			di.Name = di.Name[:len(di.Name)-len(ext)]
 		}
 	}
-	var setOrDefault = func(d string) {
-		di.FileExtension = argument.FileExtensions[di.Type]
+	var setOrDefault = func(def constant.FileExt) {
+		di.FileExtension = args.FileExtensions[di.Type]
 		if di.FileExtension == "" {
-			di.FileExtension = d
+			di.FileExtension = def
 		}
 	}
 	switch di.Type {
@@ -93,23 +90,23 @@ func setFileExtension(di *DocumentNode) {
 	// doc：旧版飞书文档。支持导出扩展名为 docx 和 pdf 的文件。已不推荐使用。
 	// sheet：飞书电子表格。支持导出扩展名为 xlsx 和 csv 的文件。
 	// bitable：飞书多维表格。支持导出扩展名为 xlsx 和 csv 格式的文件。
-	case "docx", "doc":
+	case constant.DocTypeDocx, constant.DocTypeDoc:
 		di.CanDownload = true
-		setOrDefault("docx")
-	case "bitable", "sheet":
+		setOrDefault(constant.FileExtDocx)
+	case constant.DocTypeBitable, constant.DocTypeSheet:
 		di.CanDownload = true
-		setOrDefault("xlsx")
+		setOrDefault(constant.FileExtXlsx)
 	default:
 		di.CanDownload = false
-		setOrDefault(di.Type)
+		setOrDefault(constant.FileExt(di.Type))
 	}
 }
 
 func documentTreeToInfoList(di *DocumentNode, saveDir string) []*DocumentInfo {
-	if di.Type == "folder" {
+	if di.Type == constant.DocTypeFolder {
 		di.FilePath = filepath.Join(saveDir, di.Name)
 	} else {
-		di.FilePath = filepath.Join(saveDir, di.Name+"."+di.FileExtension)
+		di.FilePath = filepath.Join(saveDir, di.Name+"."+string(di.FileExtension))
 	}
 	var infoList []*DocumentInfo
 	infoList = append(infoList, &di.DocumentInfo)
@@ -120,29 +117,33 @@ func documentTreeToInfoList(di *DocumentNode, saveDir string) []*DocumentInfo {
 }
 
 // 递归打印目录结构及文件名，打印过程中会调整空文件名为"未命名xxxn.xxx"格式
-// 返回值：tc: totalCount, cdc: canDownloadCount
-func printTree(di *DocumentNode, prefix string, totalCount, canDownloadCount int) (tc, cdc int) {
-	if prefix == "" {
+// 返回值：tc: totalCount, cdc: canDownloadCount。
+func printTree(logWriter io.Writer, tree treeprint.Tree, di *DocumentNode, totalCount, canDownloadCount int) (tc, cdc int) {
+	if totalCount == 0 {
+		root := tree
+		defer func() {
+			_, _ = fmt.Fprint(logWriter, root.String())
+		}()
 		totalCount++
 		name := getName(di.Name, di.Type, map[string]int{})
-		suffix := di.FileExtension
+		suffix := string(di.FileExtension)
 		if di.CanDownload {
 			canDownloadCount++
 		} else {
 			suffix += "（不可下载）"
 		}
-		if di.Type != "folder" {
-			fmt.Println(prefix + "├─ " + name + "." + suffix) // 文件
+		_, _ = fmt.Fprint(logWriter, "\n")
+		if di.Type != constant.DocTypeFolder {
+			tree.AddNode(name + "." + suffix) // 文件
 		}
 		if len(di.Children) > 0 {
-			fmt.Println(prefix + "├─ " + name) // 目录
+			tree = tree.AddBranch(name) // 目录
 		}
-		prefix = prefix + "│  "
 	}
 	temp := map[string]int{}
-	for i, child := range di.Children {
+	for _, child := range di.Children {
 		totalCount++
-		suffix := child.FileExtension
+		suffix := string(child.FileExtension)
 		if child.CanDownload {
 			canDownloadCount++
 		} else {
@@ -150,23 +151,23 @@ func printTree(di *DocumentNode, prefix string, totalCount, canDownloadCount int
 		}
 		child.Name = getName(child.Name, child.Type, temp)
 		if len(child.Children) > 0 {
-			if child.Type != "folder" {
-				fmt.Println(prefix + "├─ " + child.Name + "." + suffix) // 文件
+			if child.Type != constant.DocTypeFolder {
+				tree.AddNode(child.Name + "." + suffix) // 文件
 			}
-			fmt.Println(prefix + "├─ " + child.Name) // 目录
-			totalCount, canDownloadCount = printTree(child, prefix+"│  ", totalCount, canDownloadCount)
+			branch := tree.AddBranch(child.Name) // 目录
+			totalCount, canDownloadCount = printTree(logWriter, branch, child, totalCount, canDownloadCount)
 			continue
 		}
-		if i == len(di.Children)-1 {
-			fmt.Println(prefix + "└─ " + child.Name + "." + suffix)
-		} else {
-			fmt.Println(prefix + "├─ " + child.Name + "." + suffix)
+		if child.Type == constant.DocTypeFolder {
+			tree.AddNode(child.Name) // 目录
+			continue
 		}
+		tree.AddNode(child.Name + "." + suffix) // 文件
 	}
 	return totalCount, canDownloadCount
 }
 
-func getName(name, typ string, duplicateNameIndexMap map[string]int) string {
+func getName(name string, typ constant.DocType, duplicateNameIndexMap map[string]int) string {
 	if name != "" {
 		index, ok := duplicateNameIndexMap[name]
 		if !ok {
@@ -176,94 +177,35 @@ func getName(name, typ string, duplicateNameIndexMap map[string]int) string {
 		duplicateNameIndexMap[name] = index + 1
 		return fmt.Sprintf("%s%d", name, index+1)
 	}
-	unnamedIndex := duplicateNameIndexMap["[Unnamed]"+typ] + 1
-	duplicateNameIndexMap["[Unnamed]"+typ] = unnamedIndex
+	unnamedType := string("[Unnamed]" + typ)
+	unnamedIndex := duplicateNameIndexMap[unnamedType] + 1
+	duplicateNameIndexMap[unnamedType] = unnamedIndex
 	switch typ {
-	case "docx":
+	case constant.DocTypeDocx:
 		return fmt.Sprintf("未命名新版文档%d", unnamedIndex)
-	case "doc":
+	case constant.DocTypeDoc:
 		return fmt.Sprintf("未命名旧版文档%d", unnamedIndex)
-	case "sheet":
+	case constant.DocTypeSheet:
 		return fmt.Sprintf("未命名电子表格%d", unnamedIndex)
-	case "bitable":
+	case constant.DocTypeBitable:
 		return fmt.Sprintf("未命名多维表格%d", unnamedIndex)
-	case "mindnote":
+	case constant.DocTypeMindNote:
 		return fmt.Sprintf("未命名思维笔记%d", unnamedIndex)
-	case "slides":
+	case constant.DocTypeSlides:
 		return fmt.Sprintf("未命名幻灯片%d", unnamedIndex)
 	default:
 		return fmt.Sprintf("未命名飞书文档%d", unnamedIndex)
 	}
 }
 
-func doExportAndDownload(client *lark.Client, di *DocumentNode) error {
-	// 将查询到的文档树信息保存到文件中
-	// 创建目录
-	err := os.MkdirAll(argument.SaveDir, 0o755)
-	filePath := argument.SaveDir + "\\document-tree.json"
-	diBytes, err := json.MarshalIndent(di, "", "  ")
+func doExportAndDownload(task cloud.Task) error {
+	err := task.Validate()
 	if err != nil {
 		return oops.Wrap(err)
 	}
-	err = os.WriteFile(filePath, diBytes, 0o644)
-	if err != nil {
-		return oops.Errorf("写入文件失败: %+v", err)
-	}
+	defer cloud.Sleep(time.Second * 2)
+	defer task.Close()
 
-	fmt.Println("下列目录或文件将保存到:", argument.SaveDir)
-	totalCount, canDownloadCount := printTree(di, "", 0, 0)
-	fmt.Printf("\n查询总数量: %d, 可下载文档数量: %d\n", totalCount, canDownloadCount)
-	fmt.Println("----------------------------------------------")
-	if argument.ListOnly {
-		return nil
-	}
-
-	fmt.Println("阶段2: 下载飞书知识库云文档")
-	fmt.Println("--------------------------")
-	// 将树结构转为平铺的列表（复制为两个列表，一个供导出任务使用，一个供下载文件使用）
-	infoList := documentTreeToInfoList(di, argument.SaveDir)
-	canDownloadList := lo.Filter(infoList, func(di *DocumentInfo, _ int) bool { return di.CanDownload })
-	canDownloadCount = len(canDownloadList)
-
-	// 创建下载UI程序备用
-	totalProgress := teaProgress.New(
-		teaProgress.WithDefaultGradient(), // 使用默认渐变颜色
-		teaProgress.WithWidth(60),         // 设置进度条宽度
-	) // 整体进度
-	program := progress.NewProgram(nil, func(total, downloaded, failed int) string {
-		remaining := total - downloaded - failed
-		statsInfo := fmt.Sprintf("可下载: %d, 已提交: %d, 已下载: %d, 未下载: %d, 已失败: %d", canDownloadCount, total, downloaded, remaining, failed)
-		tp := totalProgress.ViewAs(float64(downloaded+failed) / float64(canDownloadCount))
-		return progress.TipsStyle.Render(statsInfo) + "\n" + tp
-	})
-	task := &Task{
-		canDownloadList: canDownloadList,
-		client:          client,
-		program:         program,
-		completed:       &atomic.Bool{},
-		queue:           make(chan *exportResult, 20),
-	}
-	defer close(task.queue)
-
-	wait := make(chan struct{})
-	go func() {
-		// 下载UI程序退出就退出主程序
-		defer func() {
-			task.completed.Store(true)
-			wait <- struct{}{}
-		}()
-		// 启动 BubbleTea
-		if _, err = program.Run(); err != nil {
-			fmt.Println("下载UI程序运行出错:", err)
-			return
-		}
-		fmt.Println("退出下载UI程序")
-	}()
-
-	task.Run()
-
-	<-wait
-
-	time.Sleep(time.Second * 2)
-	return nil
+	err = task.Run()
+	return oops.Wrap(err)
 }

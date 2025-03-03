@@ -1,0 +1,22 @@
+# Doc Ref：https://vektra.github.io/mockery/latest/configuration/
+log-level: debug
+inpackage: true
+mockname: 'Mock{{ (replace (.InterfaceName | snakecase) "i_" "" -1) | camelcase }}'
+dir: "{{.InterfaceDir}}"
+filename: '{{ replace (.InterfaceName | snakecase) "i_" "i" -1 }}_mock_test.go'
+with-expecter: true
+issue-845-fix: true
+packages:
+  github.com/acyumi/doc-exporter/component:
+    config:
+      all: true
+      recursive: true
+      exclude: ["cloud"]
+  github.com/acyumi/doc-exporter/component/progress:
+    interfaces:
+      IProgram:
+        configs:
+          - dir: "component/progress"
+          - dir: "component/feishu"
+            outpkg: "feishu"
+            inpackage: false

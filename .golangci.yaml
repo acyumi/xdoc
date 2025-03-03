@@ -1,0 +1,264 @@
+linters:
+  # Disable all linters.
+  # Default: false
+  disable-all: true
+  # Enable specific linter
+  # https://golangci-lint.run/usage/linters/#enabled-by-default
+  enable:
+#    - asasalint
+    - asciicheck
+#    - bidichk
+    - bodyclose
+#    - canonicalheader
+#    - containedctx
+#    - contextcheck
+    - copyloopvar
+#    - cyclop
+    - decorder
+#    - depguard
+#    - dogsled
+    - dupl
+    - dupword
+#    - durationcheck
+#    - err113
+    - errcheck
+#    - errchkjson
+#    - errname
+    - errorlint
+#    - exhaustive
+#    - exhaustruct
+#    - exptostd
+#    - fatcontext
+#    - forbidigo
+#    - forcetypeassert
+#    - funlen
+#    - gci
+#    - ginkgolinter
+#    - gocheckcompilerdirectives
+#    - gochecknoglobals
+#    - gochecknoinits
+#    - gochecksumtype
+#    - gocognit
+    - goconst
+    - gocritic
+#    - gocyclo
+    - godot
+#    - godox
+    - gofmt
+#    - gofumpt
+    - goheader
+#    - goimports
+#    - gomoddirectives
+#    - gomodguard
+#    - goprintffuncname
+#    - gosec
+#    - gosimple
+#    - gosmopolitan
+#    - govet
+#    - grouper
+    - iface
+#    - importas
+#    - inamedparam
+#    - ineffassign
+#    - interfacebloat
+#    - intrange
+#    - ireturn
+    - lll
+#    - loggercheck
+#    - maintidx
+    - makezero
+    - mirror
+#    - misspell
+#    - mnd
+#    - musttag
+#    - nakedret
+#    - nestif
+    - nilerr
+#    - nilnesserr
+    - nilnil
+#    - nlreturn
+#    - noctx
+#    - nolintlint
+#    - nonamedreturns
+#    - nosprintfhostport
+#    - paralleltest
+#    - perfsprint
+#    - prealloc
+#    - predeclared
+#    - promlinter
+#    - protogetter
+    - reassign
+#    - recvcheck
+    - revive
+#    - rowserrcheck
+    - sloglint
+    - spancheck
+#    - sqlclosecheck
+    - staticcheck
+#    - stylecheck
+    - tagalign
+#    - tagliatelle
+#    - testableexamples
+    - testifylint
+#    - testpackage
+#    - thelper
+#    - tparallel
+    - unconvert
+    - unparam
+    - unused
+#    - usestdlibvars
+#    - usetesting
+#    - varnamelen
+    - wastedassign
+#    - whitespace
+#    - wrapcheck
+#    - wsl
+    - zerologlint
+  # Enable presets.
+  # https://golangci-lint.run/usage/linters
+  # Default: []
+  presets: []
+  # Enable only fast linters from enabled linters set (first run won't be fast)
+  # Default: false
+  fast: false
+
+linters-settings:
+  lll:
+    # Max line length, lines longer will be reported.
+    # '\t' is counted as 1 character by default, and can be changed with the tab-width option.
+    # Default: 120.
+    line-length: 180
+    # Tab width in spaces.
+    # Default: 1
+    tab-width: 1
+  revive:
+    rules:
+      - name: receiver-naming
+        severity: warning
+        disabled: false
+        exclude: [""]
+        arguments:
+          - maxLength: 2
+      - name: var-naming
+        severity: warn
+        disabled: false
+        exclude: [""]
+        arguments:
+          - []     # AllowList 变量、方法、函数名称中的某个单词转为大写，如果在列表中，则忽略该单词的检查(认为是合理的)
+          - ["VM"] # DenyList 与 AllowList 相反
+          - [{upperCaseConst: true}] # Extra parameter (upperCaseConst|skipPackageNameChecks)
+  tagalign:
+    # Align and sort can be used together or separately.
+    #
+    # Whether enable align. If true, the struct tags will be aligned.
+    # e.g.:
+    # type FooBar struct {
+    #     Bar    string `json:"bar" validate:"required"`
+    #     FooFoo int8   `json:"foo_foo" validate:"required"`
+    # }
+    # will be formatted to:
+    # type FooBar struct {
+    #     Bar    string `json:"bar"     validate:"required"`
+    #     FooFoo int8   `json:"foo_foo" validate:"required"`
+    # }
+    # Default: true.
+    align: true
+    fix: true
+    # Whether enable tags sort.
+    # If true, the tags will be sorted by name in ascending order.
+    # e.g.: `xml:"bar" json:"bar" validate:"required"` -> `json:"bar" validate:"required" xml:"bar"`
+    # Default: true
+    sort: true
+    # Specify the order of tags, the other tags will be sorted by name.
+    # This option will be ignored if `sort` is false.
+    # Default: []
+    order:
+      - json
+      - yaml
+      - yml
+      - toml
+      - xml
+      - mapstructure
+      - binding
+      - validate
+    # Whether enable strict style.
+    # In this style, the tags will be sorted and aligned in the dictionary order,
+    # and the tags with the same name will be aligned together.
+    # Note: This option will be ignored if 'align' or 'sort' is false.
+    # Default: false
+    strict: true
+
+issues:
+  # 排除所有测试文件，并指定仅对 dupl 生效
+  exclude-rules:
+    - path: _test\.go$  # 正则匹配以 _test.go 结尾的文件
+      linters:          # 仅对 dupl 生效
+        - dupl
+
+# output configuration options
+output:
+  # The formats used to render issues.
+  # Formats:e
+  # - `colored-line-number`
+  # - `line-number`
+  # - `json`
+  # - `colored-tab`
+  # - `tab`
+  # - `html`
+  # - `checkstyle`
+  # - `code-climate`
+  # - `junit-xml`
+  # - `junit-xml-extended`
+  # - `github-actions`
+  # - `teamcity`
+  # - `sarif`
+  # Output path can be either `stdout`, `stderr` or path to the file to write to.
+  #
+  # For the CLI flag (`--out-format`), multiple formats can be specified by separating them by comma.
+  # The output can be specified for each of them by separating format name and path by colon symbol.
+  # Example: "--out-format=checkstyle:report.xml,json:stdout,colored-line-number"
+  # The CLI flag (`--out-format`) override the configuration file.
+  #
+  # Default:
+  #   formats:
+  #     - format: colored-line-number
+  #       path: stdout
+  formats:
+#    - format: json
+#      path: stderr
+#    - format: checkstyle
+#      path: report.xml
+    - format: colored-line-number
+    - format: colored-tab
+  # Print lines of code with issue.
+  # Default: true
+  print-issued-lines: true
+  # Print linter name in the end of issue text.
+  # Default: true
+  print-linter-name: true
+  # Add a prefix to the output file references.
+  # Default: ""
+  path-prefix: ""
+  # Sort results by the order defined in `sort-order`.
+  # Default: false
+  sort-results: true
+  # Order to use when sorting results.
+  # Require `sort-results` to `true`.
+  # Possible values: `file`, `linter`, and `severity`.
+  #
+  # If the severity values are inside the following list, they are ordered in this order:
+  #   1. error
+  #   2. warning
+  #   3. high
+  #   4. medium
+  #   5. low
+  # Either they are sorted alphabetically.
+  #
+  # Default: ["file"]
+  sort-order:
+    - linter
+    - severity
+    - file # filepath, line, and column.
+  # Show statistics per linter.
+  # Default: false
+  show-stats: true

@@ -1,15 +1,15 @@
-module acyumi.com/feishu-doc-exporter
+module github.com/acyumi/doc-exporter
 
-go 1.23.3
+go 1.23.4
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.2 // 重试
 	github.com/charmbracelet/bubbles v0.20.0
-	github.com/charmbracelet/bubbletea v1.3.3 // 终端交互
+	github.com/charmbracelet/bubbletea v1.3.4 // 终端交互
 	github.com/charmbracelet/lipgloss v1.0.0
-	github.com/larksuite/oapi-sdk-go/v3 v3.4.10 // 飞书
+	github.com/larksuite/oapi-sdk-go/v3 v3.4.11 // 飞书
 	github.com/samber/lo v1.49.1 // 工具
-	github.com/samber/oops v1.16.0 // 错误处理
+	github.com/samber/oops v1.17.0 // 错误处理
 	github.com/spf13/cast v1.7.1 // 类型转换
 	github.com/spf13/cobra v1.9.1 // 命令行
 	github.com/spf13/pflag v1.0.6
@@ -18,6 +18,13 @@ require (
 )
 
 require (
+	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
+	github.com/h2non/gock v1.2.0
+	github.com/xlab/treeprint v1.2.0
+)
+
+require (
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
@@ -25,6 +32,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
@@ -44,6 +52,7 @@ require (
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.opentelemetry.io/otel v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
