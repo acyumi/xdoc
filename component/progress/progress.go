@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cast"
 
-	"github.com/acyumi/doc-exporter/component/constant"
+	"github.com/acyumi/xdoc/component/constant"
 )
 
 const (

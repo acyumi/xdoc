@@ -15,10 +15,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/acyumi/doc-exporter/component/argument"
-	"github.com/acyumi/doc-exporter/component/cloud"
-	"github.com/acyumi/doc-exporter/component/feishu"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/argument"
+	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/feishu"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 const (
@@ -34,24 +34,13 @@ const (
 	flagNameQuitAutomatically = "quit-automatically" // -q --quit-automatically
 )
 
-var cmd, args = rootCommand()
+var export = exportCommand(vip, args)
 
-func Execute() error {
-	return cmd.Execute()
-}
-
-func GetArgs() *argument.Args {
-	return args
-}
-
-func rootCommand() (*cobra.Command, *argument.Args) {
-	vip := viper.New()
-	args := &argument.Args{}
-	cmd := &cobra.Command{
-		Use:     "doc-exporter",
-		Short:   "飞书云文档批量导出器",
-		Long:    "这是飞书云文档批量导出、下载到本地的程序",
-		Version: "0.0.1",
+func exportCommand(vip *viper.Viper, args *argument.Args) *cobra.Command {
+	export := &cobra.Command{
+		Use:   "export",
+		Short: "飞书云文档批量导出器",
+		Long:  "这是飞书云文档批量导出、下载到本地的程序",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			err := loadConfig(cmd, vip, args)
 			if err != nil {
@@ -60,14 +49,19 @@ func rootCommand() (*cobra.Command, *argument.Args) {
 			return runE(args)
 		},
 	}
-	err := initCommand(cmd, vip, args)
+	err := setFlags(export, vip, args)
 	if err != nil {
 		panic(err)
 	}
-	return cmd, args
+	return export
 }
 
-func initCommand(cmd *cobra.Command, vip *viper.Viper, args *argument.Args) (err error) {
+func init() {
+	// 加到根命令中
+	root.AddCommand(export)
+}
+
+func setFlags(cmd *cobra.Command, vip *viper.Viper, args *argument.Args) (err error) {
 	// 添加 --config 参数
 	cmd.PersistentFlags().StringVar(&args.ConfigFile, flagNameConfig, "", "指定配置文件(默认使用./config.yaml), 配置文件的参数会被命令行参数覆盖")
 	// 添加命令行参数

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/acyumi/doc-exporter/component/constant"
+	"github.com/acyumi/xdoc/component/constant"
 )
 
 func TestArgs_Validate(t *testing.T) {

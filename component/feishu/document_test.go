@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xlab/treeprint"
 
-	"github.com/acyumi/doc-exporter/component/argument"
-	"github.com/acyumi/doc-exporter/component/constant"
+	"github.com/acyumi/xdoc/component/argument"
+	"github.com/acyumi/xdoc/component/constant"
 )
 
 func TestDocumentInfo_GetFileName(t *testing.T) {

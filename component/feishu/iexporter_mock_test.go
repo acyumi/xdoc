@@ -5,7 +5,7 @@ package feishu
 import (
 	io "io"
 
-	progress "github.com/acyumi/doc-exporter/component/progress"
+	progress "github.com/acyumi/xdoc/component/progress"
 	mock "github.com/stretchr/testify/mock"
 )
 

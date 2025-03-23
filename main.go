@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/acyumi/doc-exporter/cmd"
+	"github.com/acyumi/xdoc/cmd"
 )
 
 // SDK 使用文档：https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/server-side-sdk/golang-sdk-guide/preparations
 func main() {
 	// TODO 支持-g --generate-config生成默认配置文件到当前目录，当打印使用命令辅助使用
 	// TODO 导出和下载的协程数量支持配置
-	// TODO 补单测
 	// TODO 执行日志输出到文件
 	// TODO docx 和 pdf 下载后自动去除水印
 	// TODO 下载UI程序支持快速滚动到顶部和底部、按ctrl+↑向上滚动10%、按ctrl+↓向下滚动10%
@@ -26,9 +25,9 @@ func main() {
 	if err != nil {
 		fmt.Println("----------------------------------------------")
 		if cmd.GetArgs().Verbose {
-			fmt.Printf("%+v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "%+v\n", err)
 		} else {
-			fmt.Printf("%v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
 		}
 		os.Exit(1)
 	}

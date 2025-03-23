@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/acyumi/doc-exporter/component/constant"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/constant"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 func Test_exporterSuite(t *testing.T) {

@@ -10,34 +10,34 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/acyumi/doc-exporter/component/argument"
-	"github.com/acyumi/doc-exporter/component/constant"
-	"github.com/acyumi/doc-exporter/component/feishu"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/argument"
+	"github.com/acyumi/xdoc/component/constant"
+	"github.com/acyumi/xdoc/component/feishu"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 // 注册测试套件。
-func TestDocExporterSuite(t *testing.T) {
-	suite.Run(t, new(DocExporterTestSuite))
+func TestExporterSuite(t *testing.T) {
+	suite.Run(t, new(ExporterTestSuite))
 }
 
-type DocExporterTestSuite struct {
+type ExporterTestSuite struct {
 	suite.Suite
 	TempDir string
 }
 
-func (s *DocExporterTestSuite) SetupTest() {
+func (s *ExporterTestSuite) SetupTest() {
 	s.TempDir = s.T().TempDir()
 }
 
-func (s *DocExporterTestSuite) TearDownTest() {
+func (s *ExporterTestSuite) TearDownTest() {
 
 }
 
-func (s *DocExporterTestSuite) TestExecute() {
-	oc := cmd
+func (s *ExporterTestSuite) TestExecute() {
+	oc := export
 	defer func() {
-		cmd = oc
+		export = oc
 	}()
 	tests := []struct {
 		name           string
@@ -218,13 +218,19 @@ file:
 				err := os.WriteFile(tempFile, tt.configContent, 0644)
 				s.Require().NoError(err, "创建测试配置文件失败")
 			}
-			cmd, args = rootCommand()
+			vip := viper.New()
+			args := &argument.Args{}
+			root = rootCommand()
+			export = exportCommand(vip, args)
+			root.AddCommand(export)
 			// 这里不能传 nil，因为这会让 cobra 取了 IDE 的参数影响单测，如 Error: unknown shorthand flag: 't' in -testify.m
 			if tt.args == nil {
 				tt.args = []string{}
 			}
-			cmd.SetArgs(tt.args)
-			err := Execute()
+			// export.Execute() 内会递归到根命令再执行，跟执行 root.Execute() 的效果是一样的，但是参数要从 root 那里传递
+			tt.args = append([]string{"export"}, tt.args...)
+			root.SetArgs(tt.args)
+			err := export.Execute()
 			if err != nil || tt.wantError != "" {
 				s.Require().Error(err, tt.name)
 				s.Require().EqualError(err, tt.wantError, tt.name)
@@ -245,7 +251,7 @@ file:
 	}
 }
 
-func (s *DocExporterTestSuite) Test_runE() {
+func (s *ExporterTestSuite) Test_runE() {
 	tests := []struct {
 		name      string
 		args      *argument.Args
@@ -289,7 +295,7 @@ func (s *DocExporterTestSuite) Test_runE() {
 }
 
 // 测试配置文件加载。
-func (s *DocExporterTestSuite) Test_loadConfigFromFile() {
+func (s *ExporterTestSuite) Test_loadConfigFromFile() {
 	tests := []struct {
 		name          string
 		configFile    string
@@ -377,7 +383,7 @@ app-id: default_app
 	}
 }
 
-func (s *DocExporterTestSuite) Test_analysisURL() {
+func (s *ExporterTestSuite) Test_analysisURL() {
 	// 文件夹 folder_token： https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0
 	// 文件 file_token：https://sample.feishu.cn/file/ndqUw1kpjnGNNaegyqDyoQDCLx1
 	// 文档 doc_token：https://sample.feishu.cn/docs/2olt0Ts4Mds7j7iqzdwrqEUnO7q
@@ -548,7 +554,7 @@ func (s *DocExporterTestSuite) Test_analysisURL() {
 }
 
 // 测试newCloudClient。
-func (s *DocExporterTestSuite) Test_newCloudClient() {
+func (s *ExporterTestSuite) Test_newCloudClient() {
 	tests := []struct {
 		name       string
 		host       string

@@ -7,7 +7,7 @@ import (
 	"github.com/cenkalti/backoff/v5"
 	"github.com/h2non/gock"
 
-	"github.com/acyumi/doc-exporter/component/cloud"
+	"github.com/acyumi/xdoc/component/cloud"
 )
 
 var (

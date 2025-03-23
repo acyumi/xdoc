@@ -13,8 +13,8 @@ import (
 	"github.com/samber/oops"
 	"github.com/spf13/cast"
 
-	"github.com/acyumi/doc-exporter/component/cloud"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 type exporter struct {

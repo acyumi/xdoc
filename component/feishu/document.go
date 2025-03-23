@@ -11,9 +11,9 @@ import (
 	"github.com/samber/oops"
 	"github.com/xlab/treeprint"
 
-	"github.com/acyumi/doc-exporter/component/argument"
-	"github.com/acyumi/doc-exporter/component/cloud"
-	"github.com/acyumi/doc-exporter/component/constant"
+	"github.com/acyumi/xdoc/component/argument"
+	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/constant"
 )
 
 type DocumentInfo struct {

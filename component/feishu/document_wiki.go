@@ -8,8 +8,8 @@ import (
 	larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
 	"github.com/samber/oops"
 
-	"github.com/acyumi/doc-exporter/component/constant"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/constant"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 func (c *ClientImpl) DownloadWikiDocuments(token string) error {

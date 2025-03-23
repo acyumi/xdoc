@@ -19,8 +19,8 @@ import (
 	"github.com/samber/oops"
 	"github.com/xlab/treeprint"
 
-	"github.com/acyumi/doc-exporter/component/cloud"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 type TaskImpl struct {

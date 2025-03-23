@@ -5,7 +5,7 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation"
 
-	"github.com/acyumi/doc-exporter/component/argument"
+	"github.com/acyumi/xdoc/component/argument"
 )
 
 var Sleep = func(duration time.Duration) { time.Sleep(duration) } // 睡眠等待函数

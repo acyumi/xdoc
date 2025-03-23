@@ -8,8 +8,8 @@ import (
 	larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
 	larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
 
-	"github.com/acyumi/doc-exporter/component/cloud"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 type Client interface {

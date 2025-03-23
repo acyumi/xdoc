@@ -11,10 +11,10 @@ import (
 	larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
 	"github.com/samber/oops"
 
-	"github.com/acyumi/doc-exporter/component/argument"
-	"github.com/acyumi/doc-exporter/component/cloud"
-	"github.com/acyumi/doc-exporter/component/constant"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/argument"
+	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/constant"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 type ClientImpl struct {

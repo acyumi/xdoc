@@ -7,12 +7,12 @@ filename: '{{ replace (.InterfaceName | snakecase) "i_" "i" -1 }}_mock_test.go'
 with-expecter: true
 issue-845-fix: true
 packages:
-  github.com/acyumi/doc-exporter/component:
+  github.com/acyumi/xdoc/component:
     config:
       all: true
       recursive: true
       exclude: ["cloud"]
-  github.com/acyumi/doc-exporter/component/progress:
+  github.com/acyumi/xdoc/component/progress:
     interfaces:
       IProgram:
         configs:

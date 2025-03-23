@@ -6,7 +6,7 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/samber/oops"
 
-	"github.com/acyumi/doc-exporter/component/constant"
+	"github.com/acyumi/xdoc/component/constant"
 )
 
 type Args struct {

@@ -8,9 +8,9 @@
 # 参数功能定义
 # 0、init: 安装构建依赖工具，如github.com/incu6us/goimports-reviser/v3@latest
 # 1、build: 构建go程序，指向当前shell脚本所在目录下的output目录，构建多种系统的二进制文件
-# 1.1、windows: doc-exporter.exe
-# 1.2、linux: doc-exporter
-# 1.3、macos: doc-exporter.darwin
+# 1.1、windows: xdoc.exe
+# 1.2、linux: xdoc
+# 1.3、macos: xdoc.darwin
 # 2、clean: 清理output目录
 # 3、run: 使用 go run 运行 main.go，运行时指定配置文件，默认为当前shell脚本所在目录下的config.yaml
 # 4、test: 运行单元测试
@@ -139,7 +139,7 @@ function build() {
     for platform in "${platforms[@]}"; do
         GOOS=${platform%/*}
         GOARCH=${platform#*/}
-        output_name="doc-exporter"
+        output_name="xdoc"
 
         if [ "${GOARCH}" = "arm64" ]; then
             output_name+=".arm64"
@@ -224,7 +224,6 @@ function lint() {
     # golangci-lint --version 的结果参考如下：
     # golangci-lint has version v1.56.2 built with go1.22.0 from (unknown, mod sum: "h1:dgQzlWHgNbCqJjuxRJhFEnHDVrrjuTGQHJ3RIZMpp/o=") on (unknown)
     check_and_install_tool "golangci-lint"
-    fmt
     # 使用 sed 的目的是 将路径中的反斜杠替换为正斜杠，否则在 Windows 下不能点击直达代码片段
     if [[ "$1" == "--verbose" ]]; then
         # \是转义符号，用\\\\才能打印出两个\
@@ -243,7 +242,6 @@ function do_mockery() {
     # v3版本使用: check_and_install_tool "mockery" "version"
     check_and_install_tool "mockery" "--version"
     mockery
-    fmt
 }
 
 # 清理构建目录
@@ -255,7 +253,7 @@ function clean() {
 # 清理构建目录
 function progress() {
     echo "测试进度条程序--------------------------------"
-    go run "${SCRIPT_DIR}/main.go" --url https://progress.test/xx/yy --app-id "1" --app-secret "2"
+    go run "${SCRIPT_DIR}/main.go" export --url https://progress.test/xx/yy --app-id "1" --app-secret "2"
 }
 
 # 帮助文档
@@ -291,16 +289,20 @@ case "$1" in
         run
         ;;
     test)
+        fmt
+        lint $2
         test
         ;;
     fmt)
         fmt
         ;;
     lint)
+        fmt
         lint $2
         ;;
     mockery)
         do_mockery
+        fmt
         ;;
     progress)
         progress

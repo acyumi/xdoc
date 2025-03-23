@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/acyumi/doc-exporter/component/cloud"
+	"github.com/acyumi/xdoc/component/cloud"
 )
 
 func TestDemoSuite(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"github.com/samber/oops"
 	"github.com/spf13/cast"
 
-	"github.com/acyumi/doc-exporter/component/argument"
-	"github.com/acyumi/doc-exporter/component/cloud"
+	"github.com/acyumi/xdoc/component/argument"
+	"github.com/acyumi/xdoc/component/cloud"
 )
 
 type TestClient struct {

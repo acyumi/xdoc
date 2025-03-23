@@ -16,9 +16,9 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/acyumi/doc-exporter/component/argument"
-	"github.com/acyumi/doc-exporter/component/cloud"
-	"github.com/acyumi/doc-exporter/component/progress"
+	"github.com/acyumi/xdoc/component/argument"
+	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/progress"
 )
 
 func TestClientImplSuite(t *testing.T) {

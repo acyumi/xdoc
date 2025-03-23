@@ -194,6 +194,8 @@ issues:
     - path: _test\.go$  # 正则匹配以 _test.go 结尾的文件
       linters:          # 仅对 dupl 生效
         - dupl
+  exclude-dirs:
+    - component/test
 
 # output configuration options
 output:

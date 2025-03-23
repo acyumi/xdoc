@@ -13,7 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/acyumi/doc-exporter/component/constant"
+	"github.com/acyumi/xdoc/component/constant"
 )
 
 func TestProgressSuite(t *testing.T) {
@@ -33,6 +33,25 @@ func (s *ProgressTestSuite) TearDownTest() {
 func (s *ProgressTestSuite) TestURLStyleRender() {
 	result := URLStyleRender("https://go.dev")
 	s.Equal("\x1b]8;;https://go.dev\x1b\\", result)
+}
+
+func toOSView(expected string) string {
+	if runtime.GOOS != constant.Windows {
+		expected = strings.Replace(expected, `                                                                       
+tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出                
+     => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd
+                                                                       `, `                                                       
+tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出
+                                                       `, 1)
+	} else {
+		expected = strings.Replace(expected, `                                                       
+tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出
+                                                       `, `                                                                       
+tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出                
+     => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd
+                                                                       `, 1)
+	}
+	return expected
 }
 
 type SafeBuffer struct {
@@ -70,11 +89,18 @@ func (s *ProgressTestSuite) Test_program_Add_Update() {
 		Program: tea.NewProgram(m, tea.WithInput(&in), tea.WithOutput(&buf)),
 	}
 	p.Add("fileKeyXyz", "fileNameXyz")
+	time.Sleep(100 * time.Millisecond)
 	p.Update("fileKeyXyz", 0.2, StatusDownloading, "fileNameXyz")
+	time.Sleep(100 * time.Millisecond)
+	p.Update("fileKeyXyz", 0.3, StatusDownloading, "fileNameXyz")
+	time.Sleep(100 * time.Millisecond)
+	p.Update("fileKeyXyz", 0.4, StatusDownloading, "fileNameXyz")
+	time.Sleep(100 * time.Millisecond)
+	p.Update("fileKeyXyz", 0.5, StatusDownloading, "fileNameXyz")
 	go func() {
 		for {
-			time.Sleep(time.Millisecond)
-			if m.executed.Load() && strings.Contains(buf.String(), "20%") {
+			time.Sleep(100 * time.Millisecond)
+			if m.executed.Load() && strings.Contains(buf.String(), "50%") {
 				p.Quit()
 				return
 			}
@@ -85,7 +111,7 @@ func (s *ProgressTestSuite) Test_program_Add_Update() {
 	expected := `
 总数量: 1, 已下载: 0, 未下载: 1, 已失败: 0
 
-███░░░░░░░░░░░░  20%: [d] fileNameXyz (fileNameXyz)                                                 
+████████░░░░░░░  50%: [d] fileNameXyz (fileNameXyz)                                                 
                                                                                                     
                                                                                                     
                                                                                                     
@@ -109,6 +135,7 @@ tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出
      => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd
                                                                        `
 	view := m1.View()
+	expected = toOSView(expected)
 	s.Equal(expected, view)
 }
 
@@ -303,6 +330,7 @@ tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出
 			tt.setupMock(m, tt.msg)
 			m1, cmd := m.Update(tt.msg)
 			view := m1.View()
+			tt.expected = toOSView(tt.expected)
 			s.Equal(tt.expected, view, tt.name)
 			if tt.expectedCommand == nil && cmd == nil {
 				return
@@ -348,11 +376,7 @@ func (s *ProgressTestSuite) Test_model_handleAddMsg() {
 tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出                
      => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd
                                                                        `
-	if runtime.GOOS == constant.Windows {
-		s.Equal(expected, view)
-		return
-	}
-	expected = strings.Replace(expected, "     => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd", "", 1)
+	expected = toOSView(expected)
 	s.Equal(expected, view)
 }
 
@@ -389,11 +413,7 @@ func (s *ProgressTestSuite) Test_model_view() {
 tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出                
      => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd
                                                                        `
-	if runtime.GOOS == constant.Windows {
-		s.Equal(expected, view)
-		return
-	}
-	expected = strings.Replace(expected, "     => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd", "", 1)
+	expected = toOSView(expected)
 	s.Equal(expected, view)
 }
 
@@ -425,16 +445,12 @@ func (s *ProgressTestSuite) Test_model_renderStats() {
 func (s *ProgressTestSuite) Test_model_helpView() {
 	m := newModel(nil)
 	view := m.helpView()
-	if runtime.GOOS == constant.Windows {
-		s.Equal("                                                                       \n"+
-			"tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出                \n"+
-			"     => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd\n"+
-			"                                                                       ", view)
-		return
-	}
-	s.Equal("                                                       \n"+
-		"tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出\n"+
-		"                                                       ", view)
+	expected := `                                                                       
+tips => 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出                
+     => windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd
+                                                                       `
+	expected = toOSView(expected)
+	s.Equal(expected, view)
 }
 
 func (s *ProgressTestSuite) Test_model_renderContent() {
