@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/samber/oops"
+
+	"github.com/acyumi/xdoc/component/app"
 )
 
 type Writer struct {
@@ -20,12 +22,12 @@ type Writer struct {
 func (pw *Writer) WriteFile(reader io.Reader) error {
 	// 创建目录
 	dirPath := filepath.Dir(pw.FilePath)
-	err := os.MkdirAll(dirPath, 0o755)
+	err := app.Fs.MkdirAll(dirPath, 0o755)
 	if err != nil {
 		return oops.Wrap(err)
 	}
 	// 保存文件
-	file, err := os.OpenFile(pw.FilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	file, err := app.Fs.OpenFile(pw.FilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return oops.Wrap(err)
 	}

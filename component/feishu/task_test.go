@@ -3,7 +3,6 @@ package feishu
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -15,9 +14,11 @@ import (
 	larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/constant"
 	"github.com/acyumi/xdoc/component/progress"
@@ -30,9 +31,12 @@ func TestTaskImplSuite(t *testing.T) {
 type TaskImplTestSuite struct {
 	suite.Suite
 	*mockRunArgs
+	memFs *afero.Afero
 }
 
 func (s *TaskImplTestSuite) SetupSuite() {
+	useMemMapFs()
+	s.memFs = app.Fs
 	cleanSleep()
 }
 
@@ -259,7 +263,15 @@ func (s *TaskImplTestSuite) TestTaskImpl_Run() {
 			tt.setupMock(args)
 			// 执行测试
 			err := args.task.Run()
-			defer os.Remove(filepath.Join("/tmp", "document-tree.json"))
+			defer func() {
+				treeFile := filepath.Join("/tmp", "document-tree.json")
+				yes, err := app.Fs.Exists(treeFile)
+				s.Require().NoError(err, tt.name)
+				if yes {
+					err = app.Fs.Remove(treeFile)
+					s.Require().NoError(err, tt.name)
+				}
+			}()
 			// 验证结果
 			if tt.expectedError != nil {
 				s.Require().Error(err, tt.name)
@@ -794,8 +806,18 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 					s.task.queue <- er
 				}
 				s.waitToContinue(completed)
-				os.Remove(filepath.Join("/tmp", exportResults[0].FilePath))
-				os.Remove(filepath.Join("/tmp", exportResults[1].FilePath))
+				yes, err := app.Fs.Exists(exportResults[0].FilePath)
+				s.Require().NoError(err, name)
+				if yes {
+					err = app.Fs.Remove(exportResults[0].FilePath)
+					s.Require().NoError(err, name)
+				}
+				yes, err = app.Fs.Exists(exportResults[1].FilePath)
+				s.Require().NoError(err, name)
+				if yes {
+					err = app.Fs.Remove(exportResults[1].FilePath)
+					s.Require().NoError(err, name)
+				}
 			},
 		},
 		{
@@ -840,6 +862,98 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 					s.task.queue <- er
 				}
 				s.waitToContinue(completed)
+			},
+		},
+		{
+			name: "创建目录失败",
+			setupMock: func(name string) (args []any) {
+				di1 := &DocumentNode{
+					DocumentInfo: DocumentInfo{
+						Name:             "doc1",
+						Token:            "doc1_token",
+						Type:             constant.DocTypeDoc,
+						DownloadDirectly: true,
+						FileExtension:    constant.FileExtDocx,
+						CanDownload:      true,
+						FilePath:         "doc1_path.docx",
+					},
+				}
+				di2 := &DocumentNode{
+					DocumentInfo: DocumentInfo{
+						Name:             "doc2",
+						Token:            "doc2_token",
+						Type:             constant.DocTypeDocx,
+						DownloadDirectly: false,
+						FileExtension:    constant.FileExtPDF,
+						CanDownload:      true,
+						FilePath:         "doc2_path.pdf",
+					},
+				}
+				s.task.Docs = &DocumentNode{
+					DocumentInfo: DocumentInfo{
+						Name:             "folder1",
+						Token:            "folder1_token",
+						Type:             constant.DocTypeFolder,
+						DownloadDirectly: false,
+						FileExtension:    "folder",
+						CanDownload:      false,
+						FilePath:         "folder1_path",
+					},
+					Children: []*DocumentNode{di1, di2},
+				}
+				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				exportedContent := "mock导出的文件内容2"
+				exportResults := []*exportResult{
+					{
+						DocumentInfo: infoList[1],
+						result:       nil,
+					},
+					{
+						DocumentInfo: infoList[2],
+						result: &larkdrive.ExportTask{
+							FileToken:     larkcore.StringPtr(di2.Token),
+							FileExtension: larkcore.StringPtr(string(di2.FileExtension)),
+							FileSize:      larkcore.IntPtr(len(exportedContent)),
+						},
+					},
+				}
+				// 初始化必要参数备用
+				s.task.canDownloadList = lo.Filter(infoList, func(di *DocumentInfo, _ int) bool { return di.CanDownload })
+				s.task.countDown = &atomic.Int32{}
+				s.task.countDown.Store(int32(len(s.task.canDownloadList)))
+				s.task.completed.Store(false)
+				s.task.queue = make(chan *exportResult, 2)
+				directlyContent := "mock直接下载的文件内容2"
+				directlyFileSize := int64(len(directlyContent))
+				s.mockExporter.EXPECT().doDownloadDirectly(di1.FilePath, di1.Token).
+					Return(strings.NewReader(directlyContent), directlyFileSize, nil).Once()
+				s.mockExporter.EXPECT().doDownloadExported(
+					di2.FilePath, larkcore.StringValue(exportResults[1].result.FileToken),
+				).Return(strings.NewReader(exportedContent), nil).Once()
+				s.mockProgram.EXPECT().Update(di1.FilePath, 0.20, progress.StatusDownloading).Once()
+				s.mockProgram.EXPECT().Update(di2.FilePath, 0.20, progress.StatusDownloading).Once()
+				app.Fs = &afero.Afero{Fs: afero.NewReadOnlyFs(app.Fs)}
+				s.mockProgram.EXPECT().Update(di1.FilePath, 0.20, progress.StatusFailed, "operation not permitted").Once()
+				s.mockProgram.EXPECT().Update(di2.FilePath, 0.20, progress.StatusFailed, "operation not permitted").Once()
+				s.mockClient.EXPECT().GetArgs().Return(&argument.Args{QuitAutomatically: true}).Maybe()
+				s.mockProgram.EXPECT().Quit().Maybe()
+				return []any{exportResults}
+			},
+			want: func(name string, completed *atomic.Bool, args []any) {
+				defer func() {
+					app.Fs = s.memFs
+				}()
+				exportResults := args[0].([]*exportResult)
+				for _, er := range exportResults {
+					s.task.queue <- er
+				}
+				s.waitToContinue(completed)
+				yes, err := app.Fs.Exists(exportResults[0].FilePath)
+				s.Require().NoError(err, name)
+				s.False(yes, name)
+				yes, err = app.Fs.Exists(exportResults[1].FilePath)
+				s.Require().NoError(err, name)
+				s.False(yes, name)
 			},
 		},
 	}

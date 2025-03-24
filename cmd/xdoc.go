@@ -43,7 +43,7 @@ func logo() string {
 	header := pterm.DefaultHeader.WithMargin(8).
 		WithBackgroundStyle(pterm.NewStyle(pterm.BgLightBlue)).
 		WithTextStyle(pterm.NewStyle(pterm.FgLightWhite)).
-		Sprint("嗯~, 导出你的云文档吧...")
+		Sprint("嗯? 导出你的云文档吧...")
 	logo := pterm.FgLightGreen.Sprint(`
     ██╗  ██╗██████╗  ██████╗  ██████╗
     ╚██╗██╔╝██╔══██╗██╔═══██╗██╔════╝
@@ -56,7 +56,7 @@ func logo() string {
 		Text:  "Go",
 		Style: pterm.NewStyle(pterm.BgBlue, pterm.FgLightWhite),
 	}
-	link := termlink.ColorLink("acyumi.com/xdoc", "https://github.com/acyumi/xdoc", "italic green")
+	link := termlink.ColorLink("github.com/acyumi/xdoc", "https://github.com/acyumi/xdoc", "italic green")
 	url := pterm.Info.Sprintf("Find more information at: %s", link)
 	return fmt.Sprintf("\n%s%s\n%s\n", header, logo, url)
 }

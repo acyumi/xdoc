@@ -19,7 +19,7 @@ import (
 	"github.com/samber/oops"
 	"github.com/xlab/treeprint"
 
-	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/progress"
 )
 
@@ -50,7 +50,7 @@ func (t *TaskImpl) Run() (err error) {
 	args := t.Client.GetArgs()
 	// 将查询到的文档树信息保存到文件中
 	// 创建目录
-	err = os.MkdirAll(args.SaveDir, 0o755)
+	err = app.Fs.MkdirAll(args.SaveDir, 0o755)
 	if err != nil {
 		return oops.Wrap(err)
 	}
@@ -60,7 +60,7 @@ func (t *TaskImpl) Run() (err error) {
 	if err != nil {
 		return oops.Wrap(err)
 	}
-	err = os.WriteFile(filePath, diBytes, 0o644)
+	err = app.Fs.WriteFile(filePath, diBytes, 0o644)
 	if err != nil {
 		return oops.Errorf("写入文件失败: %+v", err)
 	}
@@ -198,7 +198,7 @@ func (t *TaskImpl) exportDocuments() (completed *atomic.Bool) {
 				t.program.Update(di.FilePath, 0.15, status)
 
 				// 随机睡眠1到3秒
-				cloud.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+				app.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
 
 				t.program.Update(di.FilePath, 0.15, progress.StatusWaiting)
 				t.queue <- exportResult
@@ -264,13 +264,13 @@ func (t *TaskImpl) downloadDocuments() (completed *atomic.Bool) {
 					t.program.Update(value.FilePath, pw.Progress(), progress.StatusCompleted)
 
 					// 随机睡眠1到3秒
-					cloud.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+					app.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
 					t.countDown.Add(-1)
 				default:
 					if t.countDown.Load() <= 0 {
 						if t.Client.GetArgs().QuitAutomatically {
 							// 随机睡眠1到3秒
-							cloud.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+							app.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
 							t.Interrupt()
 						}
 						return

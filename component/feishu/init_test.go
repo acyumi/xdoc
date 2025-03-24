@@ -6,8 +6,9 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/h2non/gock"
+	"github.com/spf13/afero"
 
-	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/app"
 )
 
 var (
@@ -43,8 +44,14 @@ func testInitBackOff(ebo *backoff.ExponentialBackOff) {
 	checkAuthenticated()
 }
 
+func useMemMapFs() {
+	mu.Lock()
+	defer mu.Unlock()
+	app.Fs = &afero.Afero{Fs: afero.NewMemMapFs()}
+}
+
 func cleanSleep() {
 	mu.Lock()
 	defer mu.Unlock()
-	cloud.Sleep = func(duration time.Duration) { /* 单测时不需要睡眠等待 */ }
+	app.Sleep = func(duration time.Duration) { /* 单测时不需要睡眠等待 */ }
 }

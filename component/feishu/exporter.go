@@ -13,7 +13,7 @@ import (
 	"github.com/samber/oops"
 	"github.com/spf13/cast"
 
-	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/progress"
 )
 
@@ -80,7 +80,7 @@ func (e *exporter) checkExport(di *DocumentInfo, ticket string) (*exportResult, 
 		}
 		e.program.Update(di.FilePath, 0.10, progress.StatusExporting, "等待完成导出任务")
 		// 随机睡眠1到5秒
-		cloud.Sleep(time.Second * time.Duration(rand.Intn(4)+1))
+		app.Sleep(time.Second * time.Duration(rand.Intn(4)+1))
 	}
 	return nil, progress.StatusFailed, oops.New("经过多次尝试取不到导出任务结果")
 }

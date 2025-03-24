@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/acyumi/xdoc/component/cloud"
+	"github.com/acyumi/xdoc/component/app"
 )
 
 func TestDemoSuite(t *testing.T) {
@@ -29,7 +29,7 @@ func (s *DemoTestSuite) TearDownTest() {
 }
 
 func (s *DemoTestSuite) TestDemo() {
-	cloud.Sleep = func(duration time.Duration) { /* 单测时不需要睡眠等待 */ }
+	app.Sleep = func(duration time.Duration) { /* 单测时不需要睡眠等待 */ }
 	c := NewTestClient(nil)
 	args := c.GetArgs()
 	s.Nil(args)

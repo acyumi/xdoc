@@ -11,6 +11,7 @@ import (
 	"github.com/samber/oops"
 	"github.com/xlab/treeprint"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/constant"
@@ -203,7 +204,7 @@ func doExportAndDownload(task cloud.Task) error {
 	if err != nil {
 		return oops.Wrap(err)
 	}
-	defer cloud.Sleep(time.Second * 2)
+	defer app.Sleep(time.Second * 2)
 	defer task.Close()
 
 	err = task.Run()

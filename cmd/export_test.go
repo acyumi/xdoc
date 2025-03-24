@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/constant"
 	"github.com/acyumi/xdoc/component/feishu"
@@ -215,7 +216,7 @@ file:
 				tempFile = filepath.Join(exeDir, flagNameConfig+".yaml")
 			}
 			if tempFile != "" && tt.configContent != nil {
-				err := os.WriteFile(tempFile, tt.configContent, 0644)
+				err := app.Fs.WriteFile(tempFile, tt.configContent, 0644)
 				s.Require().NoError(err, "创建测试配置文件失败")
 			}
 			vip := viper.New()
@@ -246,7 +247,12 @@ file:
 			s.Equal(tt.wantAppSecret, args.AppSecret, tt.name)
 			s.Equal(tt.wantDocURL, args.DocURL, tt.name)
 			s.Equal(tt.wantSaveDir, args.SaveDir, tt.name)
-			os.Remove(tempFile)
+			yes, err := app.Fs.Exists(tempFile)
+			s.Require().NoError(err, tt.name)
+			if yes {
+				err = app.Fs.Remove(tempFile)
+				s.Require().NoError(err, tt.name)
+			}
 		})
 	}
 }
@@ -360,7 +366,7 @@ app-id: default_app
 				configFile = filepath.Join(exeDir, flagNameConfig+".yaml")
 			}
 			if configFile != "" && tt.configContent != nil {
-				err := os.WriteFile(configFile, tt.configContent, 0644)
+				err := app.Fs.WriteFile(configFile, tt.configContent, 0644)
 				s.Require().NoError(err, "创建测试配置文件失败")
 			}
 			vip := viper.New()
@@ -378,7 +384,12 @@ app-id: default_app
 			}
 			s.Equal(tt.wantConfig, args.ConfigFile, tt.name)
 			s.Equal(tt.wantAppID, vip.GetString(flagNameAppID), tt.name)
-			os.Remove(args.ConfigFile)
+			yes, err := app.Fs.Exists(args.ConfigFile)
+			s.Require().NoError(err, tt.name)
+			if yes {
+				err = app.Fs.Remove(args.ConfigFile)
+				s.Require().NoError(err, tt.name)
+			}
 		})
 	}
 }

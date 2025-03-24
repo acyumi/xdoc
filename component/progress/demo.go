@@ -9,6 +9,7 @@ import (
 	"github.com/samber/oops"
 	"github.com/spf13/cast"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 )
@@ -42,7 +43,7 @@ func (c *TestClient) DownloadDocuments(_, _ string) error {
 func downloadTask(index int, p IProgram) {
 	for i := 1; i <= 100; i++ {
 		var style = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color(cast.ToString(i)))
-		cloud.Sleep(time.Duration(rand.Intn(3000)) * time.Millisecond) // 模拟下载延迟
+		app.Sleep(time.Duration(rand.Intn(3000)) * time.Millisecond) // 模拟下载延迟
 		link := style.Render(fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", "https://baidu.com", "ctrl+单击查看问题"))
 		p.Update(fmt.Sprintf("f%d", index), float64(i)/100.0, StatusDownloading, link)
 	}
@@ -51,7 +52,7 @@ func downloadTask(index int, p IProgram) {
 // 模拟动态增加文件。
 func addFileTask(p IProgram) {
 	for i := 0; i < 100; i++ {
-		cloud.Sleep(1 * time.Second) // 模拟动态增加文件的延迟
+		app.Sleep(1 * time.Second) // 模拟动态增加文件的延迟
 		p.Add(fmt.Sprintf("add%d", i), fmt.Sprintf("新增文件%d.docx", i))
 	}
 }

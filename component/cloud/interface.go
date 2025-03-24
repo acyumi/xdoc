@@ -1,14 +1,10 @@
 package cloud
 
 import (
-	"time"
-
 	validation "github.com/go-ozzo/ozzo-validation"
 
 	"github.com/acyumi/xdoc/component/argument"
 )
-
-var Sleep = func(duration time.Duration) { time.Sleep(duration) } // 睡眠等待函数
 
 // Client 云客户端。
 type Client interface {

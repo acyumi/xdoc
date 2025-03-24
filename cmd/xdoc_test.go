@@ -3,12 +3,13 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/samber/oops"
 	"github.com/savioxavier/termlink"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/acyumi/xdoc/component/app"
 )
 
 // 注册测试套件。
@@ -178,7 +179,7 @@ Flags:
 				s.Equal(tt.want1, buf.String(), tt.name)
 				// 辅助获取单测输出
 				if tt.name == "无参" {
-					err = os.WriteFile("/tmp/test_help.txt", buf.Bytes(), 0644)
+					err = app.Fs.WriteFile("/tmp/test_help.txt", buf.Bytes(), 0644)
 					s.Require().NoError(err, tt.name)
 				}
 				return
