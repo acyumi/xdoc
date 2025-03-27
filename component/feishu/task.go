@@ -74,7 +74,7 @@ func (t *TaskImpl) Run() (err error) {
 		return nil
 	}
 
-	fmt.Println("阶段2: 下载飞书知识库云文档")
+	fmt.Println("阶段2: 下载飞书云文档")
 	fmt.Println("--------------------------")
 	// 将树结构转为平铺的列表（复制为两个列表，一个供导出任务使用，一个供下载文件使用）
 	infoList := documentTreeToInfoList(t.Docs, args.SaveDir)

@@ -1,6 +1,8 @@
 package argument
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation"
@@ -40,4 +42,34 @@ func (a *Args) SetFileExtensions(fes map[string]string) {
 	for k, v := range fes {
 		a.FileExtensions[constant.DocType(k)] = constant.FileExt(v)
 	}
+}
+
+func (a *Args) Desensitize(str string) string {
+	if a.Verbose {
+		return str
+	}
+	if len(str) < 4 {
+		return str
+	}
+	if strings.Contains(str, "http://") || strings.Contains(str, "https://") {
+		// 将域名脱敏
+		// https://sample.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe
+		// -> https://sam***.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe
+		split := strings.Split(str, "/")
+		http := split[0]
+		host := split[2]
+		if hostSplit := strings.Split(host, "."); len(hostSplit[0]) > 3 {
+			hostSplit[0] = hostSplit[0][0:3] + strings.Repeat("*", len(hostSplit[0])-3)
+			host = strings.Join(hostSplit, ".")
+		}
+		var middle string
+		if len(split) < 6 {
+			middle = split[3]
+		} else {
+			middle = strings.Join(split[3:len(split)-1], "/")
+		}
+		token := split[len(split)-1]
+		return fmt.Sprintf("%s//%s/%s/%s", http, host, middle, token)
+	}
+	return str[0:4] + strings.Repeat("*", len(str)-4)
 }

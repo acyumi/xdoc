@@ -65,6 +65,7 @@ func cleanName(name string) string {
 func setFileExtension(di *DocumentNode, args *argument.Args) {
 	// 如果是file，则需要通过文件名获取文件类型，再继续下成的switch处理
 	if di.Type == constant.DocTypeFile {
+		di.CanDownload = true
 		di.DownloadDirectly = true
 		ext := filepath.Ext(di.Name)
 		if len(ext) > 0 {
@@ -98,7 +99,6 @@ func setFileExtension(di *DocumentNode, args *argument.Args) {
 		di.CanDownload = true
 		setOrDefault(constant.FileExtXlsx)
 	default:
-		di.CanDownload = false
 		setOrDefault(constant.FileExt(di.Type))
 	}
 }

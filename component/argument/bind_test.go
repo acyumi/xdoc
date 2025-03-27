@@ -82,3 +82,81 @@ func TestArgs_SetFileExtensions(t *testing.T) {
 		})
 	}
 }
+
+func TestArgs_Desensitize(t *testing.T) {
+	tests := []struct {
+		name     string
+		str      string
+		verbose  bool
+		expected string
+	}{
+		{
+			name:     "空参数1",
+			str:      "",
+			verbose:  false,
+			expected: "",
+		},
+		{
+			name:     "空参数2",
+			str:      "",
+			verbose:  true,
+			expected: "",
+		},
+		{
+			name:     "小于四个字符",
+			str:      "xyz",
+			verbose:  true,
+			expected: "xyz",
+		},
+		{
+			name:     "小于四个字符.脱敏",
+			str:      "xyz",
+			verbose:  false,
+			expected: "xyz",
+		},
+		{
+			name:     "大于四个字符",
+			str:      "xyz...",
+			verbose:  true,
+			expected: "xyz...",
+		},
+		{
+			name:     "大于四个字符.脱敏",
+			str:      "xyz...",
+			verbose:  false,
+			expected: "xyz.**",
+		},
+		{
+			name:     "url",
+			str:      "https://sample.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe",
+			verbose:  true,
+			expected: "https://sample.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe",
+		},
+		{
+			name:     "url.脱敏",
+			str:      "https://sample.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe",
+			verbose:  false,
+			expected: "https://sam***.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe",
+		},
+		{
+			name:     "url1",
+			str:      "https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+			verbose:  true,
+			expected: "https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+		},
+		{
+			name:     "url1.脱敏",
+			str:      "https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+			verbose:  false,
+			expected: "https://sam***.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var args Args
+			args.Verbose = tt.verbose
+			actual := args.Desensitize(tt.str)
+			assert.Equal(t, tt.expected, actual, tt.name)
+		})
+	}
+}

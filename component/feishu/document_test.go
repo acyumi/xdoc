@@ -115,7 +115,7 @@ func TestSetFileExtension(t *testing.T) {
 			expectedExt:  "unknown",
 		},
 		{
-			name: "Test with file type and extension1",
+			name: "Test with file type and xlsx extension",
 			documentNode: DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Type: constant.DocTypeFile,
@@ -127,7 +127,7 @@ func TestSetFileExtension(t *testing.T) {
 			expectedExt:  constant.FileExtXlsx,
 		},
 		{
-			name: "Test with file type and extension2",
+			name: "Test with file type and docx extension",
 			documentNode: DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Type: constant.DocTypeFile,
@@ -137,6 +137,18 @@ func TestSetFileExtension(t *testing.T) {
 			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: constant.DocTypeDocx,
 			expectedExt:  constant.FileExtDocx,
+		},
+		{
+			name: "Test with file type and pdf extension",
+			documentNode: DocumentNode{
+				DocumentInfo: DocumentInfo{
+					Type: constant.DocTypeFile,
+					Name: "example.pdf",
+				},
+			},
+			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			expectedType: constant.DocTypePDF,
+			expectedExt:  "pdf",
 		},
 		{
 			name: "Test with file type and no extension",
