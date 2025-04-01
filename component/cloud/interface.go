@@ -6,6 +6,12 @@ import (
 	"github.com/acyumi/xdoc/component/argument"
 )
 
+// DocumentSource 文档源信息。
+type DocumentSource struct {
+	Type  string
+	Token string
+}
+
 // Client 云客户端。
 type Client interface {
 	validation.Validatable
@@ -14,7 +20,7 @@ type Client interface {
 	// GetArgs 获取参数
 	GetArgs() *argument.Args
 	// 	DownloadDocuments 下载文档，下载过程中可通过实现和创建 Task 来执行批量下载和获取下载进度
-	DownloadDocuments(typ, token string) error
+	DownloadDocuments([]*DocumentSource) error
 }
 
 // Task 云任务。

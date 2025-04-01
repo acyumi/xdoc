@@ -68,17 +68,17 @@ dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子�
 
 ```bash
 # 指定四大必填参数，下载完成后自动退出
-.\xdoc export -q --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --url https://xxx.feishu.cn/wiki/xxx
-.\xdoc export -quit-automatically --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --url https://xxx.feishu.cn/wiki/xxx
-.\xdoc export -q --app-id=cli_xxxxx --app-secret=xxxxxxx --dir=E:\tmp\xxxx --url=https://xxx.feishu.cn/wiki/xxx
+.\xdoc export -q --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export -quit-automatically --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export -q --app-id=cli_xxxxx --app-secret=xxxxxxx --dir=E:\tmp\xxxx --urls=https://xxx.feishu.cn/wiki/xxx
 
 # 只列出待下载的文档树，不进行下载
-.\xdoc export -l --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --url https://xxx.feishu.cn/wiki/xxx
-.\xdoc export --list-only --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --url https://xxx.feishu.cn/wiki/xxx
+.\xdoc export -l --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export --list-only --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
 
 # 下载完成后不自动退出
-.\xdoc export --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --url https://xxx.feishu.cn/wiki/xxx
-.\xdoc export -q=false --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --url https://xxx.feishu.cn/wiki/xxx
+.\xdoc export --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export -q=false --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
 ```
 
 
@@ -91,7 +91,7 @@ dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子�
 
 **如果杀毒软误报，请允许操作即可**
 
-<img src="assets/PixPin_2025-03-27_15-12-48.gif" alt="PixPin_2025-03-27_02-04-50" style="zoom:50%;" />
+<img src="assets/PixPin_2025-04-01_17-12-38.gif" alt="PixPin_2025-03-27_02-04-50" style="zoom:50%;" />
 
 执行过程长截图：
 
@@ -139,7 +139,30 @@ dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子�
 
 ### 4.2、应用授权访问API
 
-飞书的权限有**应用对API的访问权限**，还有**应用对文档的访问权限**，这里先讲**授权API**
+飞书的权限有**应用对API的访问权限**，还有**应用对文档的访问权限**
+
+如图所示，两种权限中的任何一种未得到授权，则无法下载对应的文档
+
+```mermaid
+flowchart TD
+飞书应用 --> API1已授权
+飞书应用 --> API2已授权
+API1已授权 & API2已授权 ---> 文档1已授权
+API1已授权 & API2已授权 ---> 文档2已授权
+subgraph  
+    API1已授权
+    API2已授权
+    API3未授权
+end
+subgraph  
+    文档1已授权
+    文档2已授权
+    文档3未授权
+    文档4未授权
+end
+```
+
+这里先讲**授权API**
 
 程序使用的API涉及以下几个权限，请在**权限管理**中申请，待发布生效
 
@@ -244,8 +267,26 @@ dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子�
 
 
 
+## 6、想自己打包构建？
 
-## 6、后续开发计划？
+自行按项目要求安装相应的**go**版本
+
+然后将代码克隆到本地，使用项目中的**builder.sh**脚本进行构建
+
+> 因为是**shell**脚本，**windows**下可使用**gitbash**执行
+
+```bash
+# 初始化
+./builder.sh init
+
+# 跑一下单测流程，假设有PR，要求单测覆盖率达到90%
+./builder.sh test
+
+# 构建
+./builder.sh build
+```
+
+## 7、后续开发计划？
 
 > 先做功能，再美化，UI这一块我再努力搞搞，后面一点点地修之
 
@@ -253,6 +294,6 @@ dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子�
 
 但是光搞飞书的就挺费时费神的，而且还是基于飞书的文档非常全面好用的情况下
 
-( 好吧，走街上都被喊叔叔了，精力当然没以前旺盛了 )
+( 好吧，每天早上起床灰常困难，精力当然没以前旺盛了 )
 
 其他云文档的功能随缘添加吧，大家可以关注一下，我应该不会这么快就归档这个项目

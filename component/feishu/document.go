@@ -62,30 +62,30 @@ func cleanName(name string) string {
 	return name
 }
 
-func setFileExtension(di *DocumentNode, args *argument.Args) {
+func setFileExtension(dn *DocumentNode, args *argument.Args) {
 	// 如果是file，则需要通过文件名获取文件类型，再继续下成的switch处理
-	if di.Type == constant.DocTypeFile {
-		di.CanDownload = true
-		di.DownloadDirectly = true
-		ext := filepath.Ext(di.Name)
+	if dn.Type == constant.DocTypeFile {
+		dn.CanDownload = true
+		dn.DownloadDirectly = true
+		ext := filepath.Ext(dn.Name)
 		if len(ext) > 0 {
 			e := constant.DocType(ext[1:])
 			switch e {
 			case constant.DocTypeXlsx, constant.DocTypeXls:
-				di.Type = constant.DocTypeSheet
+				dn.Type = constant.DocTypeSheet
 			default:
-				di.Type = e
+				dn.Type = e
 			}
-			di.Name = di.Name[:len(di.Name)-len(ext)]
+			dn.Name = dn.Name[:len(dn.Name)-len(ext)]
 		}
 	}
 	var setOrDefault = func(def constant.FileExt) {
-		di.FileExtension = args.FileExtensions[di.Type]
-		if di.FileExtension == "" {
-			di.FileExtension = def
+		dn.FileExtension = args.FileExtensions[dn.Type]
+		if dn.FileExtension == "" {
+			dn.FileExtension = def
 		}
 	}
-	switch di.Type {
+	switch dn.Type {
 	// 具体查看支持的类型: https://open.feishu.cn/document/server-docs/docs/drive-v1/export_task/export-user-guide
 	// 目前为四种:
 	// docx：新版飞书文档。支持导出扩展名为 docx 和 pdf 格式的文件。
@@ -93,56 +93,100 @@ func setFileExtension(di *DocumentNode, args *argument.Args) {
 	// sheet：飞书电子表格。支持导出扩展名为 xlsx 和 csv 的文件。
 	// bitable：飞书多维表格。支持导出扩展名为 xlsx 和 csv 格式的文件。
 	case constant.DocTypeDocx, constant.DocTypeDoc:
-		di.CanDownload = true
+		dn.CanDownload = true
 		setOrDefault(constant.FileExtDocx)
 	case constant.DocTypeBitable, constant.DocTypeSheet:
-		di.CanDownload = true
+		dn.CanDownload = true
 		setOrDefault(constant.FileExtXlsx)
 	default:
-		setOrDefault(constant.FileExt(di.Type))
+		setOrDefault(constant.FileExt(dn.Type))
 	}
 }
 
-func documentTreeToInfoList(di *DocumentNode, saveDir string) []*DocumentInfo {
-	if di.Type == constant.DocTypeFolder {
-		di.FilePath = filepath.Join(saveDir, di.Name)
-	} else {
-		di.FilePath = filepath.Join(saveDir, di.Name+"."+string(di.FileExtension))
+func deduplication(dns []*DocumentNode) (fdns []*DocumentNode) {
+	if len(dns) < 2 {
+		return dns
 	}
+	rejectedIndices := map[int]bool{}
+	for i, dni := range dns {
+		if rejectedIndices[i] {
+			continue
+		}
+		li := documentNodeToInfoList(dni)
+		for j, dnj := range dns {
+			if rejectedIndices[i] {
+				break
+			}
+			if j == i || rejectedIndices[j] {
+				continue
+			}
+			for _, ii := range li {
+				// 如果ii与dnj相同，那就是dni树包含了dnj树，则丢弃dnj
+				if ii.Type == dnj.Type && ii.Token == dnj.Token {
+					rejectedIndices[j] = true
+					break
+				}
+			}
+			if rejectedIndices[j] {
+				continue
+			}
+			lj := documentNodeToInfoList(dnj)
+			for _, ij := range lj {
+				// 如果ij与dni相同，那就是dnj树包含了dni树，则丢弃dni
+				if ij.Type == dni.Type && ij.Token == dni.Token {
+					rejectedIndices[i] = true
+					break
+				}
+			}
+		}
+	}
+	for i, dn := range dns {
+		if rejectedIndices[i] {
+			continue
+		}
+		fdns = append(fdns, dn)
+	}
+	return fdns
+}
+
+// documentNodeToInfoList 一棵未完整的文档树转为一维列表。
+func documentNodeToInfoList(dn *DocumentNode) []*DocumentInfo {
 	var infoList []*DocumentInfo
-	infoList = append(infoList, &di.DocumentInfo)
-	for _, child := range di.Children {
-		infoList = append(infoList, documentTreeToInfoList(child, filepath.Join(saveDir, di.Name))...)
+	infoList = append(infoList, &dn.DocumentInfo)
+	for _, child := range dn.Children {
+		infoList = append(infoList, documentNodeToInfoList(child)...)
+	}
+	return infoList
+}
+
+// documentNodesToInfoList 多棵完整的文档树转为一维列表。
+func documentNodesToInfoList(dns []*DocumentNode, saveDir string) []*DocumentInfo {
+	var infoList []*DocumentInfo
+	for _, dn := range dns {
+		if dn.Type == constant.DocTypeFolder {
+			dn.FilePath = filepath.Join(saveDir, dn.Name)
+		} else {
+			dn.FilePath = filepath.Join(saveDir, dn.Name+"."+string(dn.FileExtension))
+		}
+		infoList = append(infoList, &dn.DocumentInfo)
+		infoList = append(infoList, documentNodesToInfoList(dn.Children, filepath.Join(saveDir, dn.Name))...)
 	}
 	return infoList
 }
 
 // 递归打印目录结构及文件名，打印过程中会调整空文件名为"未命名xxxn.xxx"格式
+// tree：需要在调用前构造好传进来，以后也不要想着改造成传nil再在第一次处理时从函数内部构造
 // 返回值：tc: totalCount, cdc: canDownloadCount。
-func printTree(logWriter io.Writer, tree treeprint.Tree, di *DocumentNode, totalCount, canDownloadCount int) (tc, cdc int) {
+func printTree(logWriter io.Writer, tree treeprint.Tree, dns []*DocumentNode, totalCount, canDownloadCount int) (tc, cdc int) {
 	if totalCount == 0 {
 		root := tree
 		defer func() {
 			_, _ = fmt.Fprint(logWriter, root.String())
 		}()
-		totalCount++
-		name := getName(di.Name, di.Type, map[string]int{})
-		suffix := string(di.FileExtension)
-		if di.CanDownload {
-			canDownloadCount++
-		} else {
-			suffix += "（不可下载）"
-		}
 		_, _ = fmt.Fprint(logWriter, "\n")
-		if di.Type != constant.DocTypeFolder {
-			tree.AddNode(name + "." + suffix) // 文件
-		}
-		if len(di.Children) > 0 {
-			tree = tree.AddBranch(name) // 目录
-		}
 	}
 	temp := map[string]int{}
-	for _, child := range di.Children {
+	for _, child := range dns {
 		totalCount++
 		suffix := string(child.FileExtension)
 		if child.CanDownload {
@@ -156,7 +200,7 @@ func printTree(logWriter io.Writer, tree treeprint.Tree, di *DocumentNode, total
 				tree.AddNode(child.Name + "." + suffix) // 文件
 			}
 			branch := tree.AddBranch(child.Name) // 目录
-			totalCount, canDownloadCount = printTree(logWriter, branch, child, totalCount, canDownloadCount)
+			totalCount, canDownloadCount = printTree(logWriter, branch, child.Children, totalCount, canDownloadCount)
 			continue
 		}
 		if child.Type == constant.DocTypeFolder {

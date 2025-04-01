@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xlab/treeprint"
 
@@ -173,67 +171,581 @@ func TestSetFileExtension(t *testing.T) {
 	}
 }
 
-func TestDocumentTreeToInfoList(t *testing.T) {
+func Test_deduplication(t *testing.T) {
 	tests := []struct {
-		name         string
-		documentNode DocumentNode
-		saveDir      string
-		expected     []*DocumentInfo
+		name     string
+		dns      []*DocumentNode
+		expected []*DocumentNode
 	}{
 		{
-			name: "Test with single file",
-			documentNode: DocumentNode{
-				DocumentInfo: DocumentInfo{
-					Name:          "test",
-					Type:          constant.DocTypeDocx,
-					FileExtension: constant.FileExtDocx,
+			name: "只有一个文档，不用去重",
+			dns: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "test",
+						Type:          constant.DocTypeDocx,
+						FileExtension: constant.FileExtDocx,
+					},
 				},
 			},
-			saveDir: "saveDir",
-			expected: []*DocumentInfo{
+			expected: []*DocumentNode{
 				{
-					Name:          "test",
-					Type:          constant.DocTypeDocx,
-					FileExtension: constant.FileExtDocx,
-					FilePath:      strings.Join([]string{"saveDir", "test.docx"}, string(os.PathSeparator)),
+					DocumentInfo: DocumentInfo{
+						Name:          "test",
+						Type:          constant.DocTypeDocx,
+						FileExtension: constant.FileExtDocx,
+					},
 				},
 			},
 		},
 		{
-			name: "Test with folder and files",
-			documentNode: DocumentNode{
-				DocumentInfo: DocumentInfo{
-					Name: "folder",
-					Type: "folder",
+			name: "两棵相同的树",
+			dns: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "folder",
+						Type:  "folder",
+						Token: "folder",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								Token:         "file1",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
 				},
-				Children: []*DocumentNode{
-					{
-						DocumentInfo: DocumentInfo{
-							Name:          "file1",
-							Type:          constant.DocTypeDocx,
-							FileExtension: constant.FileExtDocx,
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "folder",
+						Type:  "folder",
+						Token: "folder",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								Token:         "file1",
+								FileExtension: constant.FileExtDocx,
+							},
 						},
 					},
 				},
 			},
-			saveDir: "saveDir",
-			expected: []*DocumentInfo{
+			expected: []*DocumentNode{
 				{
-					Name:     "folder",
-					Type:     "folder",
-					FilePath: strings.Join([]string{"saveDir", "folder"}, string(os.PathSeparator)),
-				},
-				{
-					Name:          "file1",
-					Type:          constant.DocTypeDocx,
-					FileExtension: constant.FileExtDocx,
-					FilePath:      strings.Join([]string{"saveDir", "folder", "file1.docx"}, string(os.PathSeparator)),
+					DocumentInfo: DocumentInfo{
+						Name:  "folder",
+						Type:  "folder",
+						Token: "folder",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								Token:         "file1",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
 				},
 			},
 		},
 		{
+			name: "树3(树2(树1))", // 用()表示包含
+			dns: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "file2",
+						Type:          constant.DocTypeDocx,
+						Token:         "file2",
+						FileExtension: constant.FileExtDocx,
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "folder1",
+						Type:  "folder",
+						Token: "folder1",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								Token:         "file1",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file2",
+								Type:          constant.DocTypeDocx,
+								Token:         "file2",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "root",
+						Type:  "folder",
+						Token: "root",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder1",
+								Type:  "folder",
+								Token: "folder1",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										Token:         "file1",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										Token:         "file2",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder2",
+								Type:  "folder",
+								Token: "folder2",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										Token:         "file3",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "root",
+						Type:  "folder",
+						Token: "root",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder1",
+								Type:  "folder",
+								Token: "folder1",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										Token:         "file1",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										Token:         "file2",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder2",
+								Type:  "folder",
+								Token: "folder2",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										Token:         "file3",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "树2(树1(树3))", // 用()表示包含
+			dns: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "folder1",
+						Type:  "folder",
+						Token: "folder1",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								Token:         "file1",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file2",
+								Type:          constant.DocTypeDocx,
+								Token:         "file2",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "root",
+						Type:  "folder",
+						Token: "root",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder1",
+								Type:  "folder",
+								Token: "folder1",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										Token:         "file1",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										Token:         "file2",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder2",
+								Type:  "folder",
+								Token: "folder2",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										Token:         "file3",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "file2",
+						Type:          constant.DocTypeDocx,
+						Token:         "file2",
+						FileExtension: constant.FileExtDocx,
+					},
+				},
+			},
+			expected: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "root",
+						Type:  "folder",
+						Token: "root",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder1",
+								Type:  "folder",
+								Token: "folder1",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										Token:         "file1",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										Token:         "file2",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder2",
+								Type:  "folder",
+								Token: "folder2",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										Token:         "file3",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "树2(树1(树3))树4(树5)", // 用()表示包含
+			dns: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "folder1",
+						Type:  "folder",
+						Token: "folder1",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								Token:         "file1",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file2",
+								Type:          constant.DocTypeDocx,
+								Token:         "file2",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "root",
+						Type:  "folder",
+						Token: "root",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder1",
+								Type:  "folder",
+								Token: "folder1",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										Token:         "file1",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										Token:         "file2",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder2",
+								Type:  "folder",
+								Token: "folder2",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										Token:         "file3",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "file2",
+						Type:          constant.DocTypeDocx,
+						Token:         "file2",
+						FileExtension: constant.FileExtDocx,
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "file4",
+						Type:          constant.DocTypeDocx,
+						Token:         "file4",
+						FileExtension: constant.FileExtDocx,
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file5",
+								Type:          constant.DocTypeDocx,
+								Token:         "file5",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "file5",
+						Type:          constant.DocTypeDocx,
+						Token:         "file5",
+						FileExtension: constant.FileExtDocx,
+					},
+				},
+			},
+			expected: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:  "root",
+						Type:  "folder",
+						Token: "root",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder1",
+								Type:  "folder",
+								Token: "folder1",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										Token:         "file1",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										Token:         "file2",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:  "folder2",
+								Type:  "folder",
+								Token: "folder2",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										Token:         "file3",
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "file4",
+						Type:          constant.DocTypeDocx,
+						Token:         "file4",
+						FileExtension: constant.FileExtDocx,
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file5",
+								Type:          constant.DocTypeDocx,
+								Token:         "file5",
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := deduplication(tt.dns)
+			require.Len(t, tt.expected, len(actual), tt.name)
+			require.EqualValues(t, tt.expected, actual, tt.name)
+		})
+	}
+}
+
+func TestDocumentNodeToInfoList(t *testing.T) {
+	tests := []struct {
+		name         string
+		documentNode *DocumentNode
+		expected     []*DocumentInfo
+	}{
+		{
 			name: "Test with nested folders and files",
-			documentNode: DocumentNode{
+			documentNode: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Name: "root",
 					Type: "folder",
@@ -272,6 +784,164 @@ func TestDocumentTreeToInfoList(t *testing.T) {
 									Name:          "file3",
 									Type:          constant.DocTypeDocx,
 									FileExtension: constant.FileExtDocx,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []*DocumentInfo{
+				{
+					Name:     "root",
+					Type:     "folder",
+					FilePath: "",
+				},
+				{
+					Name:     "folder1",
+					Type:     "folder",
+					FilePath: "",
+				},
+				{
+					Name:          "file1",
+					Type:          constant.DocTypeDocx,
+					FileExtension: constant.FileExtDocx,
+					FilePath:      "",
+				},
+				{
+					Name:          "file2",
+					Type:          constant.DocTypeDocx,
+					FileExtension: constant.FileExtDocx,
+					FilePath:      "",
+				},
+				{
+					Name:     "folder2",
+					Type:     "folder",
+					FilePath: "",
+				},
+				{
+					Name:          "file3",
+					Type:          constant.DocTypeDocx,
+					FileExtension: constant.FileExtDocx,
+					FilePath:      "",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := documentNodeToInfoList(tt.documentNode)
+			require.Len(t, tt.expected, len(actual), tt.name)
+			require.EqualValues(t, tt.expected, actual, tt.name)
+		})
+	}
+}
+
+func TestDocumentNodesToInfoList(t *testing.T) {
+	tests := []struct {
+		name          string
+		documentNodes []*DocumentNode
+		saveDir       string
+		expected      []*DocumentInfo
+	}{
+		{
+			name: "Test with single file",
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "test",
+						Type:          constant.DocTypeDocx,
+						FileExtension: constant.FileExtDocx,
+					},
+				},
+			},
+			saveDir: "saveDir",
+			expected: []*DocumentInfo{
+				{
+					Name:          "test",
+					Type:          constant.DocTypeDocx,
+					FileExtension: constant.FileExtDocx,
+					FilePath:      strings.Join([]string{"saveDir", "test.docx"}, string(os.PathSeparator)),
+				},
+			},
+		},
+		{
+			name: "Test with folder and files",
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name: "folder",
+						Type: "folder",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								FileExtension: constant.FileExtDocx,
+							},
+						},
+					},
+				},
+			},
+			saveDir: "saveDir",
+			expected: []*DocumentInfo{
+				{
+					Name:     "folder",
+					Type:     "folder",
+					FilePath: strings.Join([]string{"saveDir", "folder"}, string(os.PathSeparator)),
+				},
+				{
+					Name:          "file1",
+					Type:          constant.DocTypeDocx,
+					FileExtension: constant.FileExtDocx,
+					FilePath:      strings.Join([]string{"saveDir", "folder", "file1.docx"}, string(os.PathSeparator)),
+				},
+			},
+		},
+		{
+			name: "Test with nested folders and files",
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name: "root",
+						Type: "folder",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name: "folder1",
+								Type: "folder",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtDocx,
+									},
+								},
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name: "folder2",
+								Type: "folder",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtDocx,
+									},
 								},
 							},
 						},
@@ -319,7 +989,7 @@ func TestDocumentTreeToInfoList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := documentTreeToInfoList(&tt.documentNode, tt.saveDir)
+			actual := documentNodesToInfoList(tt.documentNodes, tt.saveDir)
 			require.Len(t, tt.expected, len(actual), tt.name)
 			require.EqualValues(t, tt.expected, actual, tt.name)
 		})
@@ -329,58 +999,127 @@ func TestDocumentTreeToInfoList(t *testing.T) {
 func TestPrintTree(t *testing.T) {
 	tests := []struct {
 		name           string
-		documentNode   DocumentNode
+		documentNodes  []*DocumentNode
 		expectedOutput string
 	}{
 		{
 			name: "Test with single file",
-			documentNode: DocumentNode{
-				DocumentInfo: DocumentInfo{
-					Name:          "test",
-					Type:          constant.DocTypeDocx,
-					FileExtension: constant.FileExtDocx,
-					CanDownload:   true,
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "test",
+						Type:          constant.DocTypeDocx,
+						FileExtension: constant.FileExtDocx,
+						CanDownload:   true,
+					},
 				},
 			},
-			expectedOutput: "\n/tmp\n└─ test.docx\n",
+			expectedOutput: `
+/tmp
+└─ test.docx
+`,
+		},
+		{
+			name: "Test with two file",
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "test1",
+						Type:          constant.DocTypeDocx,
+						FileExtension: constant.FileExtDocx,
+						CanDownload:   true,
+					},
+				},
+				{
+					DocumentInfo: DocumentInfo{
+						Name:          "test2",
+						Type:          constant.DocTypeDocx,
+						FileExtension: constant.FileExtDocx,
+						CanDownload:   true,
+					},
+				},
+			},
+			expectedOutput: `
+/tmp
+├─ test1.docx
+└─ test2.docx
+`,
 		},
 		{
 			name: "Test with folder and files",
-			documentNode: DocumentNode{
-				DocumentInfo: DocumentInfo{
-					Name: "folder",
-					Type: "folder",
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name: "folder1",
+						Type: "folder",
+					},
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								FileExtension: constant.FileExtDocx,
+								CanDownload:   true,
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file2",
+								Type:          constant.DocTypeMindNote,
+								FileExtension: "mindnote",
+								CanDownload:   false,
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file3",
+								Type:          constant.DocTypeSlides,
+								FileExtension: "slides",
+								CanDownload:   false,
+							},
+						},
+					},
 				},
-				Children: []*DocumentNode{
-					{
-						DocumentInfo: DocumentInfo{
-							Name:          "file1",
-							Type:          constant.DocTypeDocx,
-							FileExtension: constant.FileExtDocx,
-							CanDownload:   true,
-						},
+				{
+					DocumentInfo: DocumentInfo{
+						Name: "folder2",
+						Type: "folder",
 					},
-					{
-						DocumentInfo: DocumentInfo{
-							Name:          "file2",
-							Type:          constant.DocTypeMindNote,
-							FileExtension: "mindnote",
-							CanDownload:   false,
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file1",
+								Type:          constant.DocTypeDocx,
+								FileExtension: constant.FileExtDocx,
+								CanDownload:   true,
+							},
 						},
-					},
-					{
-						DocumentInfo: DocumentInfo{
-							Name:          "file3",
-							Type:          constant.DocTypeSlides,
-							FileExtension: "slides",
-							CanDownload:   false,
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file2",
+								Type:          constant.DocTypeMindNote,
+								FileExtension: "mindnote",
+								CanDownload:   false,
+							},
+						},
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file3",
+								Type:          constant.DocTypeSlides,
+								FileExtension: "slides",
+								CanDownload:   false,
+							},
 						},
 					},
 				},
 			},
 			expectedOutput: `
 /tmp
-└─ folder
+├─ folder1
+│   ├─ file1.docx
+│   ├─ file2.mindnote（不可下载）
+│   └─ file3.slides（不可下载）
+└─ folder2
     ├─ file1.docx
     ├─ file2.mindnote（不可下载）
     └─ file3.slides（不可下载）
@@ -388,58 +1127,60 @@ func TestPrintTree(t *testing.T) {
 		},
 		{
 			name: "Test with nested folders and files",
-			documentNode: DocumentNode{
-				DocumentInfo: DocumentInfo{
-					Name: "root",
-					Type: "folder",
-				},
-				Children: []*DocumentNode{
-					{
-						DocumentInfo: DocumentInfo{
-							Name: "folder1",
-							Type: "folder",
-						},
-						Children: []*DocumentNode{
-							{
-								DocumentInfo: DocumentInfo{
-									Name:          "file1",
-									Type:          constant.DocTypeDocx,
-									FileExtension: constant.FileExtDocx,
-									CanDownload:   true,
-								},
-							},
-							{
-								DocumentInfo: DocumentInfo{
-									Name:          "file2",
-									Type:          constant.DocTypeDocx,
-									FileExtension: constant.FileExtDocx,
-									CanDownload:   true,
-								},
-							},
-						},
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name: "root",
+						Type: "folder",
 					},
-					{
-						DocumentInfo: DocumentInfo{
-							Name: "folder2",
-							Type: "folder",
-						},
-						Children: []*DocumentNode{
-							{
-								DocumentInfo: DocumentInfo{
-									Name:          "file3",
-									Type:          constant.DocTypeDocx,
-									FileExtension: constant.FileExtDocx,
-									CanDownload:   true,
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name: "folder1",
+								Type: "folder",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtDocx,
+										CanDownload:   true,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtDocx,
+										CanDownload:   true,
+									},
 								},
 							},
 						},
-					},
-					{
-						DocumentInfo: DocumentInfo{
-							Name: "folder3",
-							Type: constant.DocTypeFolder,
+						{
+							DocumentInfo: DocumentInfo{
+								Name: "folder2",
+								Type: "folder",
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file3",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtDocx,
+										CanDownload:   true,
+									},
+								},
+							},
 						},
-						Children: []*DocumentNode{},
+						{
+							DocumentInfo: DocumentInfo{
+								Name: "folder3",
+								Type: constant.DocTypeFolder,
+							},
+							Children: []*DocumentNode{},
+						},
 					},
 				},
 			},
@@ -456,52 +1197,54 @@ func TestPrintTree(t *testing.T) {
 		},
 		{
 			name: "Test with nested files(to be folders) and files",
-			documentNode: DocumentNode{
-				DocumentInfo: DocumentInfo{
-					Name: "root",
-					Type: constant.DocTypeFolder,
-				},
-				Children: []*DocumentNode{
-					{
-						DocumentInfo: DocumentInfo{
-							Name:          "file0",
-							Type:          constant.DocTypeDocx,
-							FileExtension: constant.FileExtDocx,
-							CanDownload:   true,
-						},
-						Children: []*DocumentNode{
-							{
-								DocumentInfo: DocumentInfo{
-									Name:          "file1",
-									Type:          constant.DocTypeDocx,
-									FileExtension: constant.FileExtPDF,
-									CanDownload:   true,
-								},
-							},
-							{
-								DocumentInfo: DocumentInfo{
-									Name:          "file2",
-									Type:          constant.DocTypeMindNote,
-									FileExtension: "mindnote",
-									CanDownload:   false,
-								},
-							},
-						},
+			documentNodes: []*DocumentNode{
+				{
+					DocumentInfo: DocumentInfo{
+						Name: "root",
+						Type: constant.DocTypeFolder,
 					},
-					{
-						DocumentInfo: DocumentInfo{
-							Name:          "folder3",
-							Type:          constant.DocTypeDocx,
-							FileExtension: constant.FileExtDocx,
-							CanDownload:   true,
+					Children: []*DocumentNode{
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "file0",
+								Type:          constant.DocTypeDocx,
+								FileExtension: constant.FileExtDocx,
+								CanDownload:   true,
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file1",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtPDF,
+										CanDownload:   true,
+									},
+								},
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file2",
+										Type:          constant.DocTypeMindNote,
+										FileExtension: "mindnote",
+										CanDownload:   false,
+									},
+								},
+							},
 						},
-						Children: []*DocumentNode{
-							{
-								DocumentInfo: DocumentInfo{
-									Name:          "file4",
-									Type:          constant.DocTypeDocx,
-									FileExtension: constant.FileExtDocx,
-									CanDownload:   true,
+						{
+							DocumentInfo: DocumentInfo{
+								Name:          "folder3",
+								Type:          constant.DocTypeDocx,
+								FileExtension: constant.FileExtDocx,
+								CanDownload:   true,
+							},
+							Children: []*DocumentNode{
+								{
+									DocumentInfo: DocumentInfo{
+										Name:          "file4",
+										Type:          constant.DocTypeDocx,
+										FileExtension: constant.FileExtDocx,
+										CanDownload:   true,
+									},
 								},
 							},
 						},
@@ -528,7 +1271,7 @@ func TestPrintTree(t *testing.T) {
 			treeprint.EdgeTypeMid = "├─"
 			treeprint.EdgeTypeEnd = "└─"
 			treeprint.IndentSize = 3
-			printTree(&actual, treeprint.NewWithRoot("/tmp"), &tt.documentNode, 0, 0)
+			printTree(&actual, treeprint.NewWithRoot("/tmp"), tt.documentNodes, 0, 0)
 			// printTree(os.Stdout, treeprint.NewWithRoot("/tmp"), &tt.documentNode, 0, 0)
 			require.Equal(t, tt.expectedOutput, actual.String(), tt.name)
 		})
@@ -616,43 +1359,10 @@ func TestGetName(t *testing.T) {
 	}
 }
 
-type mockTask struct {
-	mock.Mock
-	closed bool
-}
-
-func (m *mockTask) Validate() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *mockTask) Run() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *mockTask) Close() {
-	m.Called()
-	m.closed = true
-}
-
-func (m *mockTask) Interrupt() {
-	m.Called()
-}
-
-func (m *mockTask) Complete() {
-	m.Called()
-}
-
-func (m *mockTask) GetArgs() *argument.Args {
-	args := m.Called()
-	return args.Get(0).(*argument.Args)
-}
-
 func TestDoExportAndDownload(t *testing.T) {
 	tests := []struct {
 		name            string
-		setupMock       func(*mockTask)
+		setupMock       func(*MockTask)
 		wantErr         string
 		expectValidated bool
 		expectRan       bool
@@ -660,8 +1370,8 @@ func TestDoExportAndDownload(t *testing.T) {
 	}{
 		{
 			name: "验证失败应关闭任务",
-			setupMock: func(m *mockTask) {
-				m.On("Validate").Return(errors.New("invalid token"))
+			setupMock: func(m *MockTask) {
+				m.EXPECT().Validate().Return(errors.New("invalid token")).Once()
 			},
 			wantErr:         `invalid token`,
 			expectValidated: true,
@@ -670,10 +1380,10 @@ func TestDoExportAndDownload(t *testing.T) {
 		},
 		{
 			name: "任务运行失败应关闭资源",
-			setupMock: func(m *mockTask) {
-				m.On("Validate").Return(nil)
-				m.On("Run").Return(errors.New("network error"))
-				m.On("Close").Return()
+			setupMock: func(m *MockTask) {
+				m.EXPECT().Validate().Return(nil).Once()
+				m.EXPECT().Run().Return(errors.New("network error")).Once()
+				m.EXPECT().Close().Return().Once()
 			},
 			wantErr:         `network error`,
 			expectValidated: true,
@@ -682,10 +1392,10 @@ func TestDoExportAndDownload(t *testing.T) {
 		},
 		{
 			name: "成功执行应正常关闭",
-			setupMock: func(m *mockTask) {
-				m.On("Validate").Return(nil)
-				m.On("Run").Return(nil)
-				m.On("Close").Return()
+			setupMock: func(m *MockTask) {
+				m.EXPECT().Validate().Return(nil).Once()
+				m.EXPECT().Run().Return(nil).Once()
+				m.EXPECT().Close().Return().Once()
 			},
 			wantErr:         ``,
 			expectValidated: true,
@@ -697,7 +1407,7 @@ func TestDoExportAndDownload(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 初始化Mock对象
-			mt := new(mockTask)
+			mt := NewMockTask(t)
 			tt.setupMock(mt)
 
 			// 执行测试
@@ -724,7 +1434,6 @@ func TestDoExportAndDownload(t *testing.T) {
 			} else {
 				mt.AssertNotCalled(t, "Close")
 			}
-			assert.Equal(t, tt.expectClosed, mt.closed, tt.name)
 		})
 	}
 }

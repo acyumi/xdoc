@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/samber/oops"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/feishu"
@@ -26,7 +28,7 @@ const (
 	flagNameVerbose           = "verbose"            // -V --verbose
 	flagNameAppID             = "app-id"             //    --app
 	flagNameAppSecret         = "app-secret"         //    --app
-	flagNameURL               = "url"                //    --url
+	flagNameURLs              = "urls"               //    --urls
 	flagNameDir               = "dir"                //    --dir
 	flagNameExt               = "ext"                //    --ext
 	flagNameFileExtensions    = "file.extensions"    //
@@ -69,7 +71,7 @@ func setFlags(cmd *cobra.Command, vip *viper.Viper, args *argument.Args) (err er
 	flags.BoolP(flagNameVerbose, "V", false, "是否显示详细日志")
 	flags.String(flagNameAppID, "", "飞书应用ID")
 	flags.String(flagNameAppSecret, "", "飞书应用密钥")
-	flags.String(flagNameURL, "", "文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz")
+	flags.StringSlice(flagNameURLs, []string{}, "文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz")
 	flags.String(flagNameDir, "", "文档存放目录(本地)")
 	flags.StringToString(flagNameExt, map[string]string{}, "文档扩展名映射, 用于指定文档下载后的文件类型, 对应配置文件file.extensions(如 docx=docx,doc=pdf)")
 	flags.BoolP(flagNameListOnly, "l", false, "是否只列出云文档信息不进行导出下载")
@@ -103,7 +105,7 @@ func loadConfig(cmd *cobra.Command, vip *viper.Viper, args *argument.Args) (err 
 	args.Verbose = vip.GetBool(flagNameVerbose)
 	args.AppID = vip.GetString(flagNameAppID)
 	args.AppSecret = vip.GetString(flagNameAppSecret)
-	args.DocURL = vip.GetString(flagNameURL)
+	args.DocURLs = vip.GetStringSlice(flagNameURLs)
 	args.SaveDir = vip.GetString(flagNameDir)
 	args.SaveDir = filepath.Clean(args.SaveDir)
 	args.SetFileExtensions(vip.GetStringMapString(flagNameFileExtensions))
@@ -114,6 +116,8 @@ func loadConfig(cmd *cobra.Command, vip *viper.Viper, args *argument.Args) (err 
 	args.SetFileExtensions(overrides)
 	args.ListOnly = vip.GetBool(flagNameListOnly)
 	args.QuitAutomatically = vip.GetBool(flagNameQuitAutomatically)
+	// 去重
+	args.DocURLs = lo.Uniq[string](args.DocURLs)
 	return nil
 }
 
@@ -121,6 +125,7 @@ func runE(args *argument.Args) (err error) {
 	args.StartTime = time.Now()
 	defer func() {
 		duration := time.Since(args.StartTime)
+		fmt.Println("----------------------------------------------")
 		fmt.Printf("完成飞书云文档操作, 总耗时: %s\n", duration.String())
 		if err != nil {
 			return
@@ -132,7 +137,11 @@ func runE(args *argument.Args) (err error) {
 	fmt.Printf(" Verbose: %v\n", args.Verbose)
 	fmt.Printf(" AppID: %s\n", args.Desensitize(args.AppID))
 	fmt.Printf(" AppSecret: %s\n", args.Desensitize(args.AppSecret))
-	fmt.Printf(" DocURL: %s\n", args.Desensitize(args.DocURL))
+	fmt.Printf(" DocURLs: %v\n", func() string {
+		ds := args.DesensitizeSlice(args.DocURLs...)
+		urls, _ := app.MarshalIndent(ds, "", "  ")
+		return strings.ReplaceAll(string(urls), "\n", "\n ")
+	}())
 	fmt.Printf(" SaveDir: %s\n", args.SaveDir)
 	fmt.Printf(" FileExtensions: %v\n", args.FileExtensions)
 	fmt.Printf(" ListOnly: %v\n", args.ListOnly)
@@ -142,19 +151,27 @@ func runE(args *argument.Args) (err error) {
 		return oops.Wrap(err)
 	}
 	// 先通过文档地址获取文件类型和token
-	host, typ, token, err := analysisURL(args.DocURL)
-	if err != nil {
-		return oops.Wrap(err)
+	var gotHost string
+	var docSources []*cloud.DocumentSource
+	for _, docURL := range args.DocURLs {
+		host, typ, token, err := analysisURL(docURL)
+		if err != nil {
+			return oops.Wrap(err)
+		}
+		if gotHost == "" {
+			gotHost = host
+		} else if gotHost != host {
+			return oops.Errorf("文档地址不匹配, 请确保所有文档地址都是同一域名")
+		}
+		docSources = append(docSources, &cloud.DocumentSource{Type: typ, Token: token})
 	}
-	fmt.Println("阶段1: 读取飞书云文档信息")
-	fmt.Println("--------------------------")
 	// 创建 Client
-	client, err := newCloudClient(args, host)
+	client, err := newCloudClient(args, gotHost)
 	if err != nil {
 		return oops.Wrap(err)
 	}
 	// 下载文档
-	return client.DownloadDocuments(typ, token)
+	return client.DownloadDocuments(docSources)
 }
 
 func loadConfigFromFile(vip *viper.Viper, args *argument.Args) error {

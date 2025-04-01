@@ -47,6 +47,6 @@ func (s *DemoTestSuite) TestDemo() {
 		return nil, errors.New("demo error")
 	})
 
-	err = tc.DownloadDocuments("", "")
+	err = tc.DownloadDocuments(nil)
 	s.Require().EqualError(err, "demo error")
 }

@@ -114,84 +114,41 @@ func (s *TaskImplTestSuite) TestTaskImpl_Run() {
 		expectedError error
 	}{
 		{
-			name: "只列出文件树",
-			setupMock: func(args *mockRunArgs) {
-				args.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
-					},
-					Children: []*DocumentNode{
-						{
-							DocumentInfo: DocumentInfo{
-								Name:             "doc1",
-								Token:            "doc1_token",
-								Type:             constant.DocTypeDoc,
-								DownloadDirectly: false,
-								FileExtension:    constant.FileExtDocx,
-								CanDownload:      true,
-								FilePath:         "doc1_path.docx",
-							},
-						},
-						{
-							DocumentInfo: DocumentInfo{
-								Name:             "doc2",
-								Token:            "doc2_token",
-								Type:             constant.DocTypeDocx,
-								DownloadDirectly: true,
-								FileExtension:    constant.FileExtPDF,
-								CanDownload:      true,
-								FilePath:         "doc2_path.pdf",
-							},
-						},
-					},
-				}
-				args.mockClient.EXPECT().GetArgs().Return(&argument.Args{
-					SaveDir:  "/tmp",
-					ListOnly: true,
-				}).Once()
-			},
-			expectedError: nil,
-		},
-		{
 			name: "正常执行",
 			setupMock: func(args *mockRunArgs) {
-				args.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
-					},
-					Children: []*DocumentNode{
-						{
-							DocumentInfo: DocumentInfo{
-								Name:             "doc1",
-								Token:            "doc1_token",
-								Type:             constant.DocTypeDoc,
-								DownloadDirectly: false,
-								FileExtension:    constant.FileExtDocx,
-								CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
-								FilePath:         "doc1_path.docx",
-							},
+				args.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
 						},
-						{
-							DocumentInfo: DocumentInfo{
-								Name:             "doc2",
-								Token:            "doc2_token",
-								Type:             constant.DocTypeDocx,
-								DownloadDirectly: false,
-								FileExtension:    constant.FileExtPDF,
-								CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
-								FilePath:         "doc2_path.pdf",
+						Children: []*DocumentNode{
+							{
+								DocumentInfo: DocumentInfo{
+									Name:             "doc1",
+									Token:            "doc1_token",
+									Type:             constant.DocTypeDoc,
+									DownloadDirectly: false,
+									FileExtension:    constant.FileExtDocx,
+									CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
+									FilePath:         "doc1_path.docx",
+								},
+							},
+							{
+								DocumentInfo: DocumentInfo{
+									Name:             "doc2",
+									Token:            "doc2_token",
+									Type:             constant.DocTypeDocx,
+									DownloadDirectly: false,
+									FileExtension:    constant.FileExtPDF,
+									CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
+									FilePath:         "doc2_path.pdf",
+								},
 							},
 						},
 					},
@@ -209,37 +166,39 @@ func (s *TaskImplTestSuite) TestTaskImpl_Run() {
 		{
 			name: "下载UI程序报错",
 			setupMock: func(args *mockRunArgs) {
-				args.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
-					},
-					Children: []*DocumentNode{
-						{
-							DocumentInfo: DocumentInfo{
-								Name:             "doc1",
-								Token:            "doc1_token",
-								Type:             constant.DocTypeDoc,
-								DownloadDirectly: false,
-								FileExtension:    constant.FileExtDocx,
-								CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
-								FilePath:         "doc1_path.docx",
-							},
+				args.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
 						},
-						{
-							DocumentInfo: DocumentInfo{
-								Name:             "doc2",
-								Token:            "doc2_token",
-								Type:             constant.DocTypeDocx,
-								DownloadDirectly: false,
-								FileExtension:    constant.FileExtPDF,
-								CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
-								FilePath:         "doc2_path.pdf",
+						Children: []*DocumentNode{
+							{
+								DocumentInfo: DocumentInfo{
+									Name:             "doc1",
+									Token:            "doc1_token",
+									Type:             constant.DocTypeDoc,
+									DownloadDirectly: false,
+									FileExtension:    constant.FileExtDocx,
+									CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
+									FilePath:         "doc1_path.docx",
+								},
+							},
+							{
+								DocumentInfo: DocumentInfo{
+									Name:             "doc2",
+									Token:            "doc2_token",
+									Type:             constant.DocTypeDocx,
+									DownloadDirectly: false,
+									FileExtension:    constant.FileExtPDF,
+									CanDownload:      false, // 设置成不能下载，不跑 exportDocuments 和 downloadDocuments
+									FilePath:         "doc2_path.pdf",
+								},
 							},
 						},
 					},
@@ -348,26 +307,28 @@ func (s *TaskImplTestSuite) TestTaskImpl_exportDocuments() {
 		{
 			name: "正常执行[直接下载一条数据]",
 			setupMock: func(name string) (args []any) {
-				s.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "doc1",
-						Token:            "doc1_token",
-						Type:             constant.DocTypeDoc,
-						DownloadDirectly: true,
-						FileExtension:    constant.FileExtDocx,
-						CanDownload:      true,
-						FilePath:         "doc1_path.docx",
+				s.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "doc1",
+							Token:            "doc1_token",
+							Type:             constant.DocTypeDoc,
+							DownloadDirectly: true,
+							FileExtension:    constant.FileExtDocx,
+							CanDownload:      true,
+							FilePath:         "doc1_path.docx",
+						},
+						Children: []*DocumentNode(nil),
 					},
-					Children: []*DocumentNode(nil),
 				}
-				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				infoList := documentNodesToInfoList(s.task.Docs, "/tmp")
 				// 初始化必要参数备用
 				s.task.canDownloadList = lo.Filter(infoList, func(di *DocumentInfo, _ int) bool { return di.CanDownload })
 				s.task.countDown = &atomic.Int32{}
 				s.task.countDown.Store(int32(len(s.task.canDownloadList)))
 				s.task.completed.Store(false)
 				s.task.queue = make(chan *exportResult, 1)
-				s.mockProgram.EXPECT().Add(s.task.Docs.FilePath, "doc1.docx").Once()
+				s.mockProgram.EXPECT().Add(s.task.Docs[0].FilePath, "doc1.docx").Once()
 				return []any{&exportResult{DocumentInfo: infoList[0], result: nil}}
 			},
 			want: func(name string, completed *atomic.Bool, args []any) {
@@ -405,19 +366,21 @@ func (s *TaskImplTestSuite) TestTaskImpl_exportDocuments() {
 						FilePath:         "doc2_path.pdf",
 					},
 				}
-				s.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
+				s.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
+						},
+						Children: []*DocumentNode{di1, di2},
 					},
-					Children: []*DocumentNode{di1, di2},
 				}
-				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				infoList := documentNodesToInfoList(s.task.Docs, "/tmp")
 				exportResults := []*exportResult{
 					{
 						DocumentInfo: infoList[1],
@@ -476,19 +439,21 @@ func (s *TaskImplTestSuite) TestTaskImpl_exportDocuments() {
 						FilePath:         "doc1_path.docx",
 					},
 				}
-				s.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
+				s.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
+						},
+						Children: []*DocumentNode{di1},
 					},
-					Children: []*DocumentNode{di1},
 				}
-				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				infoList := documentNodesToInfoList(s.task.Docs, "/tmp")
 				exportResults := []*exportResult{
 					{
 						DocumentInfo: infoList[1],
@@ -530,19 +495,21 @@ func (s *TaskImplTestSuite) TestTaskImpl_exportDocuments() {
 						FilePath:         "doc1_path.docx",
 					},
 				}
-				s.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
+				s.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
+						},
+						Children: []*DocumentNode{di1},
 					},
-					Children: []*DocumentNode{di1},
 				}
-				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				infoList := documentNodesToInfoList(s.task.Docs, "/tmp")
 				exportResults := []*exportResult{
 					{
 						DocumentInfo: infoList[1],
@@ -584,19 +551,21 @@ func (s *TaskImplTestSuite) TestTaskImpl_exportDocuments() {
 						FilePath:         "doc1_path.docx",
 					},
 				}
-				s.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
+				s.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
+						},
+						Children: []*DocumentNode{di1},
 					},
-					Children: []*DocumentNode{di1},
 				}
-				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				infoList := documentNodesToInfoList(s.task.Docs, "/tmp")
 				exportResults := []*exportResult{
 					{
 						DocumentInfo: infoList[1],
@@ -744,19 +713,21 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 						FilePath:         "doc2_path.pdf",
 					},
 				}
-				s.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
+				s.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
+						},
+						Children: []*DocumentNode{di1, di2},
 					},
-					Children: []*DocumentNode{di1, di2},
 				}
-				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				infoList := documentNodesToInfoList(s.task.Docs, "/tmp")
 				exportedContent := "mock导出的文件内容"
 				exportResults := []*exportResult{
 					{
@@ -889,19 +860,21 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 						FilePath:         "doc2_path.pdf",
 					},
 				}
-				s.task.Docs = &DocumentNode{
-					DocumentInfo: DocumentInfo{
-						Name:             "folder1",
-						Token:            "folder1_token",
-						Type:             constant.DocTypeFolder,
-						DownloadDirectly: false,
-						FileExtension:    "folder",
-						CanDownload:      false,
-						FilePath:         "folder1_path",
+				s.task.Docs = []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "folder1",
+							Token:            "folder1_token",
+							Type:             constant.DocTypeFolder,
+							DownloadDirectly: false,
+							FileExtension:    "folder",
+							CanDownload:      false,
+							FilePath:         "folder1_path",
+						},
+						Children: []*DocumentNode{di1, di2},
 					},
-					Children: []*DocumentNode{di1, di2},
 				}
-				infoList := documentTreeToInfoList(s.task.Docs, "/tmp")
+				infoList := documentNodesToInfoList(s.task.Docs, "/tmp")
 				exportedContent := "mock导出的文件内容2"
 				exportResults := []*exportResult{
 					{
@@ -932,7 +905,7 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 				).Return(strings.NewReader(exportedContent), nil).Once()
 				s.mockProgram.EXPECT().Update(di1.FilePath, 0.20, progress.StatusDownloading).Once()
 				s.mockProgram.EXPECT().Update(di2.FilePath, 0.20, progress.StatusDownloading).Once()
-				app.Fs = &afero.Afero{Fs: afero.NewReadOnlyFs(app.Fs)}
+				useFs(&afero.Afero{Fs: afero.NewReadOnlyFs(app.Fs)})
 				s.mockProgram.EXPECT().Update(di1.FilePath, 0.20, progress.StatusFailed, "operation not permitted").Once()
 				s.mockProgram.EXPECT().Update(di2.FilePath, 0.20, progress.StatusFailed, "operation not permitted").Once()
 				s.mockClient.EXPECT().GetArgs().Return(&argument.Args{QuitAutomatically: true}).Maybe()
@@ -941,7 +914,7 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 			},
 			want: func(name string, completed *atomic.Bool, args []any) {
 				defer func() {
-					app.Fs = s.memFs
+					useFs(s.memFs)
 				}()
 				exportResults := args[0].([]*exportResult)
 				for _, er := range exportResults {

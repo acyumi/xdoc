@@ -3,6 +3,9 @@ package feishu
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
@@ -10,7 +13,9 @@ import (
 	larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
 	larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
 	"github.com/samber/oops"
+	"github.com/xlab/treeprint"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/constant"
@@ -20,7 +25,7 @@ import (
 type ClientImpl struct {
 	*lark.Client
 	Args        *argument.Args
-	TaskCreator func(args *argument.Args, docs *DocumentNode) cloud.Task
+	TaskCreator func(args *argument.Args, docs []*DocumentNode) cloud.Task
 }
 
 func NewClient(args *argument.Args) cloud.Client {
@@ -46,14 +51,60 @@ func (c ClientImpl) Validate() error {
 		))
 }
 
-func (c *ClientImpl) DownloadDocuments(typ, token string) (err error) {
+func (c *ClientImpl) DownloadDocuments(docSources []*cloud.DocumentSource) error {
+	fmt.Println("阶段1: 读取飞书云文档信息")
+	fmt.Println("--------------------------")
+	var dns []*DocumentNode
+	for _, ds := range docSources {
+		dn, err := c.QueryDocuments(ds.Type, ds.Token)
+		if err != nil {
+			return oops.Wrap(err)
+		}
+		dns = append(dns, dn)
+	}
+	// 去重，可能dns中的树是互相包含的关系
+	dns = deduplication(dns)
+
+	// 将查询到的文档树信息保存到文件中
+	// 创建目录
+	err := app.Fs.MkdirAll(c.Args.SaveDir, 0o755)
+	if err != nil {
+		return oops.Wrap(err)
+	}
+	// 将文档树信息保存到document-tree.json文件中
+	filePath := filepath.Join(c.Args.SaveDir, "document-tree.json")
+	diBytes, err := app.MarshalIndent(dns, "", "  ")
+	if err != nil {
+		return oops.Wrap(err)
+	}
+	err = app.Fs.WriteFile(filePath, diBytes, 0o644)
+	if err != nil {
+		return oops.Wrapf(err, "写入文件失败")
+	}
+
+	fmt.Println("预计将目录或文件保存如下:")
+	tree := treeprint.NewWithRoot(c.Args.SaveDir)
+	totalCount, canDownloadCount := printTree(os.Stdout, tree, dns, 0, 0)
+	fmt.Printf("\n查询总数量: %d, 可下载文档数量: %d\n", totalCount, canDownloadCount)
+	fmt.Println("--------------------------")
+	fmt.Printf("阶段1, 耗时: %s\n", time.Since(c.Args.StartTime).String())
+	fmt.Println("----------------------------------------------")
+	if c.Args.ListOnly {
+		return nil
+	}
+
+	task := c.CreateTask(dns, progress.NewProgram)
+	return doExportAndDownload(task)
+}
+
+func (c *ClientImpl) QueryDocuments(typ, token string) (dn *DocumentNode, err error) {
 	switch typ {
 	case "/wiki":
 		fmt.Printf("飞书云文档源: 知识库, 类型: %s, token: %s\n", typ, token)
-		err = c.DownloadWikiDocuments(token)
+		dn, err = c.QueryWikiDocuments(token)
 	case "/wiki/settings":
 		fmt.Printf("飞书云文档源: 知识库, 类型: %s, token: %s\n", typ, token)
-		err = c.DownloadWikiSpaceDocuments(token)
+		dn, err = c.QueryWikiSpaceDocuments(token)
 	case "/drive/folder", "/docs", "/docx", "/sheets", "/file":
 		fmt.Printf("飞书云文档源: 云空间, 类型: %s, token: %s\n", typ, token)
 		var docType constant.DocType
@@ -66,19 +117,18 @@ func (c *ClientImpl) DownloadDocuments(typ, token string) (err error) {
 			docType = constant.DocTypeSheet
 		case "/file":
 			docType = constant.DocTypeFile
-		case "/drive/folder":
-			docType = constant.DocTypeFolder
 		default:
-			return oops.Code("InvalidArgument").Errorf("不支持的飞书云文档类型: %s\n", typ)
+			// "/drive/folder"
+			docType = constant.DocTypeFolder
 		}
-		err = c.DownloadDriveDocuments(docType, token)
+		dn, err = c.QueryDriveDocuments(docType, token)
 	default:
 		err = oops.Code("InvalidArgument").Errorf("不支持的飞书云文档类型: %s\n", typ)
 	}
-	return err
+	return dn, err
 }
 
-func (c *ClientImpl) CreateTask(docs *DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task {
+func (c *ClientImpl) CreateTask(docs []*DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task {
 	if c.TaskCreator != nil {
 		return c.TaskCreator(c.Args, docs)
 	}

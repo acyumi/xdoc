@@ -35,7 +35,7 @@ func (c *TestClient) Validate() error {
 	return nil
 }
 
-func (c *TestClient) DownloadDocuments(_, _ string) error {
+func (c *TestClient) DownloadDocuments([]*cloud.DocumentSource) error {
 	return testProgramAddUpdate(c.p)
 }
 

@@ -16,15 +16,15 @@ func TestArgs_Validate(t *testing.T) {
 		name      string
 		AppID     string
 		AppSecret string
-		DocURL    string
+		DocURLs   []string
 		SaveDir   string
 		expected  string
 	}{
-		{"AppID 为空", "", "valid_secret", "valid_url", "valid_dir", "AppID: app-id是必需参数."},
-		{"AppSecret 为空", "valid_id", "", "valid_url", "valid_dir", "AppSecret: app-secret是必需参数."},
-		{"DocURL 为空", "valid_id", "valid_secret", "", "valid_dir", "DocURL: url是必需参数."},
-		{"SaveDir 为空", "valid_id", "valid_secret", "valid_url", "", "SaveDir: dir是必需参数."},
-		{"所有参数都有效", "valid_id", "valid_secret", "valid_url", "valid_dir", ""},
+		{"AppID 为空", "", "valid_secret", []string{"valid_url"}, "valid_dir", "AppID: app-id是必需参数."},
+		{"AppSecret 为空", "valid_id", "", []string{"valid_url"}, "valid_dir", "AppSecret: app-secret是必需参数."},
+		{"DocURLs 为空", "valid_id", "valid_secret", []string{}, "valid_dir", "DocURLs: urls是必需参数."},
+		{"SaveDir 为空", "valid_id", "valid_secret", []string{"valid_url"}, "", "SaveDir: dir是必需参数."},
+		{"所有参数都有效", "valid_id", "valid_secret", []string{"valid_url"}, "valid_dir", ""},
 	}
 
 	for _, tt := range tests {
@@ -32,7 +32,7 @@ func TestArgs_Validate(t *testing.T) {
 			var args Args
 			args.AppID = tt.AppID
 			args.AppSecret = tt.AppSecret
-			args.DocURL = tt.DocURL
+			args.DocURLs = tt.DocURLs
 			args.SaveDir = tt.SaveDir
 			err := args.Validate()
 			if tt.expected == "" {
@@ -79,6 +79,48 @@ func TestArgs_SetFileExtensions(t *testing.T) {
 			var args Args
 			args.SetFileExtensions(tt.fes)
 			assert.Equal(t, tt.expected, args.FileExtensions, tt.name)
+		})
+	}
+}
+
+func TestArgs_DesensitizeSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		verbose  bool
+		expected []string
+	}{
+		{
+			name: "url1",
+			args: []string{
+				"https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+				"https://xyzccc.feishu.cn/drive/folder/asdlfkjasfopweqprobpzxiqpo8",
+			},
+			verbose: true,
+			expected: []string{
+				"https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+				"https://xyzccc.feishu.cn/drive/folder/asdlfkjasfopweqprobpzxiqpo8",
+			},
+		},
+		{
+			name: "url1.脱敏",
+			args: []string{
+				"https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+				"https://xyzccc.feishu.cn/drive/folder/asdlfkjasfopweqprobpzxiqpo8",
+			},
+			verbose: false,
+			expected: []string{
+				"https://sam***.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+				"https://xyz***.feishu.cn/drive/folder/asdlfkjasfopweqprobpzxiqpo8",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var args Args
+			args.Verbose = tt.verbose
+			actual := args.DesensitizeSlice(tt.args...)
+			assert.Equal(t, tt.expected, actual, tt.name)
 		})
 	}
 }

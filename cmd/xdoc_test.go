@@ -125,7 +125,7 @@ Flags:
   -h, --help                 help for export
   -l, --list-only            是否只列出云文档信息不进行导出下载
   -q, --quit-automatically   是否在下载完成后自动退出程序
-      --url string           文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz
+      --urls strings         文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz
   -V, --verbose              是否显示详细日志
 `,
 			want1: `这是飞书云文档批量导出、下载到本地的程序
@@ -142,7 +142,7 @@ Flags:
   -h, --help                 help for export
   -l, --list-only            是否只列出云文档信息不进行导出下载
   -q, --quit-automatically   是否在下载完成后自动退出程序
-      --url string           文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz
+      --urls strings         文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz
   -V, --verbose              是否显示详细日志
 `,
 		},

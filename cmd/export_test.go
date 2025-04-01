@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/h2non/gock"
 	"github.com/samber/oops"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -48,7 +49,7 @@ func (s *ExporterTestSuite) TestExecute() {
 		wantConfigFile string
 		wantAppID      string
 		wantAppSecret  string
-		wantDocURL     string
+		wantDocURLs    []string
 		wantSaveDir    string
 		wantError      string
 		wantCode       string
@@ -60,7 +61,7 @@ func (s *ExporterTestSuite) TestExecute() {
 			args: []string{
 				"--app-id", "xx",
 				"--app-secret", "yy",
-				"--url", "https://invalid.cn/docs/xxx",
+				"--urls", "https://invalid.cn/docs/xxx",
 				"--dir", "/tmp",
 				"--list-only", "true",
 				"--quit-automatically", "true",
@@ -69,7 +70,7 @@ func (s *ExporterTestSuite) TestExecute() {
 			wantConfigFile: "",
 			wantAppID:      "xx",
 			wantAppSecret:  "yy",
-			wantDocURL:     "https://invalid.cn/docs/xxx",
+			wantDocURLs:    []string{"https://invalid.cn/docs/xxx"},
 			wantSaveDir:    filepath.Clean("/tmp"),
 			wantError:      "不支持的文档来源域名: invalid.cn",
 		},
@@ -79,7 +80,7 @@ func (s *ExporterTestSuite) TestExecute() {
 			configContent: []byte(`
 app-id: "xx"
 app-secret: "yy"
-url: "https://invalid.cn/docs/xxx"
+urls: ["https://invalid.cn/docs/xxx"]
 dir: "/tmp"
 list-only: true
 quit-automatically: true
@@ -92,7 +93,7 @@ file:
 			wantConfigFile: filepath.Join(s.TempDir, "test.yaml"),
 			wantAppID:      "xx",
 			wantAppSecret:  "yy",
-			wantDocURL:     "https://invalid.cn/docs/xxx",
+			wantDocURLs:    []string{"https://invalid.cn/docs/xxx"},
 			wantSaveDir:    filepath.Clean("/tmp"),
 			wantError:      "不支持的文档来源域名: invalid.cn",
 		},
@@ -102,7 +103,7 @@ file:
 			configContent: []byte(`
 app-id: "xx"
 app-secret: "yy"
-url: "https://invalid.cn/docs/xxx"
+urls: ["https://invalid.cn/docs/xxx"]
 dir: "/tmp"
 list-only: true
 quit-automatically: true
@@ -119,7 +120,7 @@ file:
 			}(),
 			wantAppID:     "xx",
 			wantAppSecret: "yy",
-			wantDocURL:    "https://invalid.cn/docs/xxx",
+			wantDocURLs:   []string{"https://invalid.cn/docs/xxx"},
 			wantSaveDir:   filepath.Clean("/tmp"),
 			wantError:     "不支持的文档来源域名: invalid.cn",
 		},
@@ -129,7 +130,7 @@ file:
 			configContent: []byte(`
 app-id: "xx"
 app-secret: "yy"
-url: "feishu://invalid.cn/docs/xxx"
+urls: ["feishu://invalid.cn/docs/xxx"]
 dir: "/tmp"
 list-only: true
 quit-automatically: true
@@ -146,7 +147,7 @@ file:
 			}(),
 			wantAppID:     "xx",
 			wantAppSecret: "yy",
-			wantDocURL:    "feishu://invalid.cn/docs/xxx",
+			wantDocURLs:   []string{"feishu://invalid.cn/docs/xxx"},
 			wantSaveDir:   filepath.Clean("/tmp"),
 			wantError:     "url地址必须是http://或https://开头",
 			wantCode:      "BadRequest",
@@ -157,7 +158,7 @@ file:
 			configContent: []byte(`
 app-id: "xx"
 app-secret: "yy"
-url: "https://invalid.cn/docs/xxx"
+urls: ["https://invalid.cn/docs/xxx"]
 dir: "/tmp"
 list-only: true
 quit-automatically: true
@@ -175,7 +176,7 @@ file:
 			}(),
 			wantAppID:     "",
 			wantAppSecret: "",
-			wantDocURL:    "",
+			wantDocURLs:   nil,
 			wantSaveDir:   "",
 			wantError:     "invalid argument \"xxx\" for \"--ext\" flag: xxx must be formatted as key=value",
 			wantCode:      "",
@@ -186,9 +187,9 @@ file:
 			wantConfigFile: "nonexistent.yaml",
 			wantAppID:      "",
 			wantAppSecret:  "",
-			wantDocURL:     "",
+			wantDocURLs:    []string{},
 			wantSaveDir:    ".",
-			wantError:      "AppID: app-id是必需参数; AppSecret: app-secret是必需参数; DocURL: url是必需参数.",
+			wantError:      "AppID: app-id是必需参数; AppSecret: app-secret是必需参数; DocURLs: urls是必需参数.",
 			wantCode:       "InvalidArgument",
 		},
 		{
@@ -199,7 +200,7 @@ file:
 			wantConfigFile: filepath.Join(s.TempDir, "ttt.exe"),
 			wantAppID:      "",
 			wantAppSecret:  "",
-			wantDocURL:     "",
+			wantDocURLs:    nil,
 			wantSaveDir:    "",
 			wantError:      "加载配置文件失败: Unsupported Config Type \"exe\"",
 			wantCode:       "",
@@ -245,7 +246,7 @@ file:
 			s.Equal(tt.wantConfigFile, tempFile, tt.name)
 			s.Equal(tt.wantAppID, args.AppID, tt.name)
 			s.Equal(tt.wantAppSecret, args.AppSecret, tt.name)
-			s.Equal(tt.wantDocURL, args.DocURL, tt.name)
+			s.Equal(tt.wantDocURLs, args.DocURLs, tt.name)
 			s.Equal(tt.wantSaveDir, args.SaveDir, tt.name)
 			yes, err := app.Fs.Exists(tempFile)
 			s.Require().NoError(err, tt.name)
@@ -259,17 +260,19 @@ file:
 
 func (s *ExporterTestSuite) Test_runE() {
 	tests := []struct {
-		name      string
-		args      *argument.Args
-		wantError string
-		wantCode  string
+		name         string
+		args         *argument.Args
+		setupMock    func(name string)
+		teardownMock func(name string)
+		wantError    string
+		wantCode     string
 	}{
 		{
 			name: "指定有效配置文件",
 			args: &argument.Args{
 				AppID:             "xx",
 				AppSecret:         "yy",
-				DocURL:            "https://invalid.cn/docs/xxx",
+				DocURLs:           []string{"https://invalid.cn/docs/xxx"},
 				SaveDir:           "/tmp",
 				ListOnly:          true,
 				QuitAutomatically: true,
@@ -278,14 +281,70 @@ func (s *ExporterTestSuite) Test_runE() {
 					"doc":  "docx",
 				},
 			},
-			wantError: "不支持的文档来源域名: invalid.cn",
+			setupMock:    func(name string) {},
+			teardownMock: func(name string) {},
+			wantError:    "不支持的文档来源域名: invalid.cn",
+			wantCode:     "",
+		},
+		{
+			name: "文档地址不是同一域名",
+			args: &argument.Args{
+				AppID:     "xx",
+				AppSecret: "yy",
+				DocURLs: []string{
+					"https://invalid.cn/docs/xxx",
+					"https://xxxyyy.feishu.cn/docs/xxx",
+				},
+				SaveDir:           "/tmp",
+				ListOnly:          true,
+				QuitAutomatically: true,
+				FileExtensions: map[constant.DocType]constant.FileExt{
+					"docx": "docx",
+					"doc":  "docx",
+				},
+			},
+			setupMock:    func(name string) {},
+			teardownMock: func(name string) {},
+			wantError:    "文档地址不匹配, 请确保所有文档地址都是同一域名",
+			wantCode:     "",
+		},
+		{
+			name: "执行下载报错",
+			args: &argument.Args{
+				AppID:     "xx",
+				AppSecret: "yy",
+				DocURLs: []string{
+					"https://xxxyyy.feishu.cn/docs/xxx",
+				},
+				SaveDir:           "/tmp",
+				ListOnly:          true,
+				QuitAutomatically: true,
+				FileExtensions: map[constant.DocType]constant.FileExt{
+					"docx": "docx",
+					"doc":  "docx",
+				},
+			},
+			setupMock: func(name string) {
+				// 模拟获取 tenant_access_token 的响应
+				gock.New("https://open.feishu.cn").
+					Post("/open-apis/auth/v3/tenant_access_token/internal").
+					Reply(500).
+					JSON(`{"code":500,"msg":"模拟请求失败"}`)
+			},
+			teardownMock: func(name string) {
+				gock.Off()
+				s.True(gock.IsDone(), name)
+			},
+			wantError: "msg:模拟请求失败,code:500",
 			wantCode:  "",
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
+			tt.setupMock(tt.name)
 			err := runE(tt.args)
+			tt.teardownMock(tt.name)
 			if err != nil || tt.wantError != "" {
 				s.Require().Error(err, tt.name)
 				s.Require().EqualError(err, tt.wantError, tt.name)

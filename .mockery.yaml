@@ -12,6 +12,13 @@ packages:
       all: true
       recursive: true
       exclude: ["cloud"]
+  github.com/acyumi/xdoc/component/cloud:
+    interfaces:
+      Task:
+        configs:
+          - dir: "component/feishu"
+            outpkg: "feishu"
+            inpackage: false
   github.com/acyumi/xdoc/component/progress:
     interfaces:
       IProgram:

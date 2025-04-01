@@ -16,7 +16,7 @@ type Client interface {
 	cloud.Client
 
 	// CreateTask 创建批量下载文件的任务
-	CreateTask(docs *DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task
+	CreateTask(docs []*DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task
 
 	// DriveBatchQuery 【云盘】批量查询文件元信息
 	DriveBatchQuery(ctx context.Context, req *larkdrive.BatchQueryMetaReq, options ...larkcore.RequestOptionFunc) (*larkdrive.BatchQueryMetaResp, error)

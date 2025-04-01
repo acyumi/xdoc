@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/acyumi/xdoc/component/argument"
-	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/constant"
 )
 
@@ -22,8 +21,7 @@ func TestDocumentWikiSuite(t *testing.T) {
 
 type DocumentWikiTestSuite struct {
 	suite.Suite
-	client   *ClientImpl
-	mockTask *mockTask
+	client *ClientImpl
 }
 
 func (s *DocumentWikiTestSuite) SetupSuite() {
@@ -37,32 +35,28 @@ func (s *DocumentWikiTestSuite) SetupTest() {
 		AppSecret: "xxx",
 		StartTime: time.Now(),
 	}).(*ClientImpl)
-	s.mockTask = &mockTask{}
-	s.client.TaskCreator = func(args *argument.Args, docs *DocumentNode) cloud.Task {
-		return s.mockTask
-	}
 }
 
 func (s *DocumentWikiTestSuite) TearDownTest() {
-	initBackOff = initExponentialBackOff
-	s.mockTask.AssertExpectations(s.T())
 }
 
 func (s *DocumentWikiTestSuite) TearDownSuite() {
+	initBackOff = initExponentialBackOff
 }
 
-func (s *DocumentWikiTestSuite) TestDownloadWikiDocuments() {
+func (s *DocumentWikiTestSuite) TestQueryWikiDocuments() {
 	tests := []struct {
 		name         string
 		token        string
-		setupMock    func(mt *mockTask, name, token string)
-		teardownMock func(mt *mockTask, name, token string)
+		setupMock    func(name, token string)
+		teardownMock func(name, token string)
 		wantError    string
+		want         *DocumentNode
 	}{
 		{
 			name:  "请求报错",
 			token: "token",
-			setupMock: func(mt *mockTask, name, token string) {
+			setupMock: func(name, token string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/get_node").
 					MatchParam("obj_type", "wiki").
@@ -71,7 +65,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			teardownMock: func(mt *mockTask, name, token string) {
+			teardownMock: func(name, token string) {
 				for i, m := range gock.GetAll() {
 					request := m.Request()
 					s.T().Logf("Mock Http Request %d: %v", i+1, request.URLStruct)
@@ -84,7 +78,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiDocuments() {
 		{
 			name:  "请求成功，读到文件列表",
 			token: "token",
-			setupMock: func(mt *mockTask, name, token string) {
+			setupMock: func(name, token string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/get_node").
 					MatchParam("obj_type", "wiki").
@@ -153,20 +147,47 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiDocuments() {
         "has_more": false
     }
 }`)
-				mt.On("Validate").Return(nil)
-				mt.On("Run").Return(nil)
-				mt.On("Close").Return()
 			},
-			teardownMock: func(mt *mockTask, name, token string) {
+			teardownMock: func(name, token string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
 			wantError: "",
+			want: &DocumentNode{
+				DocumentInfo: DocumentInfo{
+					Name:             "标题",
+					Type:             "doc",
+					Token:            "doccnzAaODxxxxxxWabcdef",
+					FileExtension:    "docx",
+					CanDownload:      true,
+					DownloadDirectly: false,
+					URL:              "",
+					NodeToken:        "wikcnKQ1k3pxxxxxx8Vabcef",
+					SpaceID:          "6946843325487912356",
+					FilePath:         "",
+				},
+				Children: []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "标题",
+							Type:             "doc",
+							Token:            "doccnzAaODxxxxxxWabcdeg",
+							FileExtension:    "docx",
+							CanDownload:      true,
+							DownloadDirectly: false,
+							URL:              "",
+							NodeToken:        "wikcnKQ1k3pxxxxxx8Vabceg",
+							SpaceID:          "6946843325487912356",
+							FilePath:         "",
+						},
+					},
+				},
+			},
 		},
 		{
 			name:  "读到文件列表失败",
 			token: "token",
-			setupMock: func(mt *mockTask, name, token string) {
+			setupMock: func(name, token string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/get_node").
 					MatchParam("obj_type", "wiki").
@@ -210,7 +231,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code":400,"msg":"Failed"}`)
 			},
-			teardownMock: func(mt *mockTask, name, token string) {
+			teardownMock: func(name, token string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
@@ -219,7 +240,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiDocuments() {
 		{
 			name:  "无子集，请求成功",
 			token: "token",
-			setupMock: func(mt *mockTask, name, token string) {
+			setupMock: func(name, token string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/get_node").
 					MatchParam("obj_type", "wiki").
@@ -250,41 +271,54 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiDocuments() {
         }
     }
 }`)
-				mt.On("Validate").Return(nil)
-				mt.On("Run").Return(nil)
-				mt.On("Close").Return()
 			},
-			teardownMock: func(mt *mockTask, name, token string) {
+			teardownMock: func(name, token string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
 			wantError: "",
+			want: &DocumentNode{
+				DocumentInfo: DocumentInfo{
+					Name:             "标题",
+					Type:             "doc",
+					Token:            "doccnzAaODxxxxxxWabcdef",
+					FileExtension:    "docx",
+					CanDownload:      true,
+					DownloadDirectly: false,
+					URL:              "",
+					NodeToken:        "wikcnKQ1k3pxxxxxx8Vabcef",
+					SpaceID:          "6946843325487912356",
+					FilePath:         "",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			tt.setupMock(s.mockTask, tt.name, tt.token)
-			err := s.client.DownloadWikiDocuments(tt.token)
-			tt.teardownMock(s.mockTask, tt.name, tt.token)
+			tt.setupMock(tt.name, tt.token)
+			actual, err := s.client.QueryWikiDocuments(tt.token)
+			tt.teardownMock(tt.name, tt.token)
 			if err != nil || tt.wantError != "" {
 				s.Require().EqualError(err, tt.wantError, tt.name)
 			}
+			s.Equal(tt.want, actual, tt.name)
 		})
 	}
 }
 
-func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
+func (s *DocumentWikiTestSuite) TestQueryWikiSpaceDocuments() {
 	tests := []struct {
 		name         string
 		spaceID      string
-		setupMock    func(mt *mockTask, name, spaceID string)
-		teardownMock func(mt *mockTask, name, spaceID string)
+		setupMock    func(name, spaceID string)
+		teardownMock func(name, spaceID string)
 		wantError    string
+		want         *DocumentNode
 	}{
 		{
 			name:    "请求报错",
 			spaceID: "6946843325487912356",
-			setupMock: func(mt *mockTask, name, spaceID string) {
+			setupMock: func(name, spaceID string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/"+spaceID).
 					PathParam("spaces", spaceID).
@@ -292,7 +326,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			teardownMock: func(mt *mockTask, name, token string) {
+			teardownMock: func(name, token string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
@@ -301,7 +335,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
 		{
 			name:    "请求成功，读到文件列表",
 			spaceID: "6946843325487912366",
-			setupMock: func(mt *mockTask, name, spaceID string) {
+			setupMock: func(name, spaceID string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/"+spaceID).
 					PathParam("spaces", spaceID).
@@ -356,20 +390,47 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
         "has_more": false
     }
 }`)
-				mt.On("Validate").Return(nil)
-				mt.On("Run").Return(nil)
-				mt.On("Close").Return()
 			},
-			teardownMock: func(mt *mockTask, name, spaceID string) {
+			teardownMock: func(name, spaceID string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
 			wantError: "",
+			want: &DocumentNode{
+				DocumentInfo: DocumentInfo{
+					Name:             "知识空间",
+					Type:             "folder",
+					Token:            "6946843325487912366",
+					FileExtension:    "",
+					CanDownload:      false,
+					DownloadDirectly: false,
+					URL:              "",
+					NodeToken:        "",
+					SpaceID:          "6946843325487912366",
+					FilePath:         "",
+				},
+				Children: []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "标题",
+							Type:             "doc",
+							Token:            "doccnzAaODxxxxxxWabcdeg",
+							FileExtension:    "docx",
+							CanDownload:      true,
+							DownloadDirectly: false,
+							URL:              "",
+							NodeToken:        "wikcnKQ1k3pxxxxxx8Vabceg",
+							SpaceID:          "6946843325487912366",
+							FilePath:         "",
+						},
+					},
+				},
+			},
 		},
 		{
 			name:    "读到文件列表失败",
 			spaceID: "6946843325487912356",
-			setupMock: func(mt *mockTask, name, spaceID string) {
+			setupMock: func(name, spaceID string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/"+spaceID).
 					PathParam("spaces", spaceID).
@@ -399,7 +460,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code":400,"msg":"Failed"}`)
 			},
-			teardownMock: func(mt *mockTask, name, spaceID string) {
+			teardownMock: func(name, spaceID string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
@@ -408,7 +469,7 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
 		{
 			name:    "无子集，请求成功",
 			spaceID: "6946843325487912356",
-			setupMock: func(mt *mockTask, name, spaceID string) {
+			setupMock: func(name, spaceID string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/"+spaceID).
 					PathParam("spaces", spaceID).
@@ -444,25 +505,37 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
         "has_more": false
     }
 }`)
-				mt.On("Validate").Return(nil)
-				mt.On("Run").Return(nil)
-				mt.On("Close").Return()
 			},
-			teardownMock: func(mt *mockTask, name, spaceID string) {
+			teardownMock: func(name, spaceID string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
 			wantError: "",
+			want: &DocumentNode{
+				DocumentInfo: DocumentInfo{
+					Name:             "知识空间",
+					Type:             "folder",
+					Token:            "6946843325487912356",
+					FileExtension:    "",
+					CanDownload:      false,
+					DownloadDirectly: false,
+					URL:              "",
+					NodeToken:        "",
+					SpaceID:          "6946843325487912356",
+					FilePath:         "",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			tt.setupMock(s.mockTask, tt.name, tt.spaceID)
-			err := s.client.DownloadWikiSpaceDocuments(tt.spaceID)
-			tt.teardownMock(s.mockTask, tt.name, tt.spaceID)
+			tt.setupMock(tt.name, tt.spaceID)
+			actual, err := s.client.QueryWikiSpaceDocuments(tt.spaceID)
+			tt.teardownMock(tt.name, tt.spaceID)
 			if err != nil || tt.wantError != "" {
 				s.Require().EqualError(err, tt.wantError, tt.name)
 			}
+			s.Equal(tt.want, actual, tt.name)
 		})
 	}
 }
@@ -470,19 +543,19 @@ func (s *DocumentWikiTestSuite) TestDownloadWikiSpaceDocuments() {
 func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 	tests := []struct {
 		name            string
-		di              *DocumentNode
+		dn              *DocumentNode
 		hasChild        bool
 		spaceID         string
 		parentNodeToken string
 		pageToken       string
-		setupMock       func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string)
+		setupMock       func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string)
 		teardownMock    func(name string)
 		want            *DocumentNode
 		wantError       string
 	}{
 		{
 			name: "hasChild为false",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "Token",
 					Name:             "Name",
@@ -498,7 +571,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			spaceID:         "space_id",
 			parentNodeToken: "Token",
 			pageToken:       "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
 			},
 			teardownMock: func(name string) {
 			},
@@ -520,7 +593,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 		},
 		{
 			name: "获取超时",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "Token",
 					Name:             "Name",
@@ -536,7 +609,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			spaceID:         "space_id",
 			parentNodeToken: "Token",
 			pageToken:       "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
 				s.client.Args.StartTime = time.Now().Add(-time.Hour)
 			},
 			teardownMock: func(name string) {
@@ -560,7 +633,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 		},
 		{
 			name: "请求成功，没有递归",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "Token",
 					Name:             "Name",
@@ -576,7 +649,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			spaceID:         "space_id",
 			parentNodeToken: "Token",
 			pageToken:       "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
 				// 模拟 WikiNodeList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/space_id/nodes").
@@ -618,7 +691,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 		},
 		{
 			name: "请求成功，一次递归，但文件无子集，不发起第二次请求",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "boxbc0dGSMu23m7QkC1bvabcef",
 					Name:             "Name",
@@ -634,7 +707,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			spaceID:         "space_id",
 			parentNodeToken: "boxbc0dGSMu23m7QkC1bvabcef",
 			pageToken:       "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
 				// 模拟 WikiNodeList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/space_id/nodes").
@@ -709,7 +782,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 		},
 		{
 			name: "请求失败，一次递归",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "boxbc0dGSMu23m7QkC1bvabcef",
 					Name:             "Name",
@@ -725,7 +798,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			spaceID:         "space_id",
 			parentNodeToken: "boxbc0dGSMu23m7QkC1bvabcef",
 			pageToken:       "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
 				// 模拟 WikiNodeList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/space_id/nodes").
@@ -812,7 +885,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 		},
 		{
 			name: "请求成功，两次递归",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "boxbc0dGSMu23m7QkC1bvabcef",
 					Name:             "Name",
@@ -828,7 +901,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			spaceID:         "space_id",
 			parentNodeToken: "boxbc0dGSMu23m7QkC1bvabcef",
 			pageToken:       "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
 				// 模拟 WikiNodeList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/space_id/nodes").
@@ -945,7 +1018,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 		},
 		{
 			name: "响应500失败",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "boxbc0dGSMu23m7QkC1bvabcef",
 					Name:             "Name",
@@ -961,7 +1034,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			spaceID:         "space_id",
 			parentNodeToken: "boxbc0dGSMu23m7QkC1bvabcef",
 			pageToken:       "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, spaceID, parentNodeToken, pageToken string) {
 				// 模拟 WikiNodeList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/space_id/nodes").
@@ -1071,8 +1144,8 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			tt.setupMock(tt.name, tt.di, tt.hasChild, tt.spaceID, tt.parentNodeToken, tt.pageToken)
-			err := s.client.fetchWikiDescendant(tt.di, tt.hasChild, tt.spaceID, tt.parentNodeToken, tt.pageToken)
+			tt.setupMock(tt.name, tt.dn, tt.hasChild, tt.spaceID, tt.parentNodeToken, tt.pageToken)
+			err := s.client.fetchWikiDescendant(tt.dn, tt.hasChild, tt.spaceID, tt.parentNodeToken, tt.pageToken)
 			tt.teardownMock(tt.name)
 			if err != nil || tt.wantError != "" {
 				s.Require().Error(err, tt.name)
@@ -1085,7 +1158,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 			} else {
 				s.Require().NoError(err, tt.name)
 			}
-			s.Equal(tt.want, tt.di, tt.name)
+			s.Equal(tt.want, tt.dn, tt.name)
 		})
 	}
 }

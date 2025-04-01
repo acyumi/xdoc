@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/acyumi/xdoc/component/argument"
-	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/constant"
 )
 
@@ -23,8 +22,7 @@ func TestDocumentDriveSuite(t *testing.T) {
 
 type DocumentDriveTestSuite struct {
 	suite.Suite
-	client   *ClientImpl
-	mockTask *mockTask
+	client *ClientImpl
 }
 
 func (s *DocumentDriveTestSuite) SetupSuite() {
@@ -38,34 +36,30 @@ func (s *DocumentDriveTestSuite) SetupTest() {
 		AppSecret: "xxx",
 		StartTime: time.Now(),
 	}).(*ClientImpl)
-	s.mockTask = &mockTask{}
-	s.client.TaskCreator = func(args *argument.Args, docs *DocumentNode) cloud.Task {
-		return s.mockTask
-	}
 }
 
 func (s *DocumentDriveTestSuite) TearDownTest() {
-	s.mockTask.AssertExpectations(s.T())
 }
 
 func (s *DocumentDriveTestSuite) TearDownSuite() {
 	initBackOff = initExponentialBackOff
 }
 
-func (s *DocumentDriveTestSuite) TestDownloadDriveDocuments() {
+func (s *DocumentDriveTestSuite) TestQueryDriveDocuments() {
 	tests := []struct {
-		name      string
-		typ       constant.DocType
-		token     string
-		setupMock func(mt *mockTask, name string)
-		wantError string
-		want      func(mt *mockTask, name string)
+		name         string
+		typ          constant.DocType
+		token        string
+		setupMock    func(name string)
+		teardownMock func(name string)
+		wantError    string
+		want         *DocumentNode
 	}{
 		{
 			name:  "请求报错",
 			typ:   constant.DocTypeFolder,
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -81,17 +75,17 @@ func (s *DocumentDriveTestSuite) TestDownloadDriveDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "服务端响应有failed_list",
 			typ:   constant.DocTypeFile,
 			token: "fileToken",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -119,17 +113,17 @@ func (s *DocumentDriveTestSuite) TestDownloadDriveDocuments() {
   }
 }`)
 			},
-			wantError: "获取文件夹元数据失败: code: 970005, token: boxcnrHpsg1QDqXAAAyachabcef",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "获取文件夹元数据失败: code: 970005, token: boxcnrHpsg1QDqXAAAyachabcef",
 		},
 		{
 			name:  "请求成功，读到文件列表",
 			typ:   constant.DocTypeFolder,
 			token: "folderToken",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -193,21 +187,48 @@ func (s *DocumentDriveTestSuite) TestDownloadDriveDocuments() {
     },
     "msg":"success"
 }`)
-				mt.On("Validate").Return(nil)
-				mt.On("Run").Return(nil)
-				mt.On("Close").Return()
 			},
-			wantError: "",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
+			},
+			wantError: "",
+			want: &DocumentNode{
+				DocumentInfo: DocumentInfo{
+					Name:             "sampletitle",
+					Type:             "folder",
+					Token:            "folderToken",
+					FileExtension:    "",
+					CanDownload:      false,
+					DownloadDirectly: false,
+					URL:              "",
+					NodeToken:        "",
+					SpaceID:          "",
+					FilePath:         "",
+				},
+				Children: []*DocumentNode{
+					{
+						DocumentInfo: DocumentInfo{
+							Name:             "test docx",
+							Type:             "docx",
+							Token:            "boxbc0dGSMu23m7QkC1bvabcef",
+							FileExtension:    "docx",
+							CanDownload:      true,
+							DownloadDirectly: false,
+							URL:              "https://feishu.cn/file/boxbc0dGSMu23m7QkC1bvabcef",
+							NodeToken:        "",
+							SpaceID:          "",
+							FilePath:         "",
+						},
+					},
+				},
 			},
 		},
 		{
 			name:  "读到文件列表失败",
 			typ:   constant.DocTypeFolder,
 			token: "folderToken",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -255,17 +276,17 @@ func (s *DocumentDriveTestSuite) TestDownloadDriveDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code":400,"msg":"Failed"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 400,\n  Msg: \"Failed\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 400,\n  Msg: \"Failed\"\n}",
 		},
 		{
 			name:  "非目录，请求成功",
 			typ:   constant.DocTypeFile,
 			token: "fileToken",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -299,21 +320,32 @@ func (s *DocumentDriveTestSuite) TestDownloadDriveDocuments() {
     "failed_list": []
   }
 }`)
-				mt.On("Validate").Return(nil)
-				mt.On("Run").Return(nil)
-				mt.On("Close").Return()
 			},
-			wantError: "",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
+			},
+			wantError: "",
+			want: &DocumentNode{
+				DocumentInfo: DocumentInfo{
+					Name:             "sampletitle",
+					Type:             "file",
+					Token:            "fileToken",
+					FileExtension:    "file",
+					CanDownload:      true,
+					DownloadDirectly: true,
+					URL:              "",
+					NodeToken:        "",
+					SpaceID:          "",
+					FilePath:         "",
+				},
 			},
 		},
 		{
 			name:  "/docs",
 			typ:   constant.DocTypeDoc,
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -329,20 +361,22 @@ func (s *DocumentDriveTestSuite) TestDownloadDriveDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			tt.setupMock(s.mockTask, tt.name)
-			err := s.client.DownloadDriveDocuments(tt.typ, tt.token)
+			tt.setupMock(tt.name)
+			actual, err := s.client.QueryDriveDocuments(tt.typ, tt.token)
+			tt.teardownMock(tt.name)
 			if err != nil || tt.wantError != "" {
 				s.Require().EqualError(err, tt.wantError, tt.name)
 			}
+			s.Equal(tt.want, actual, tt.name)
 		})
 	}
 }
@@ -351,18 +385,18 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 	checkAuthenticated()
 	tests := []struct {
 		name         string
-		di           *DocumentNode
+		dn           *DocumentNode
 		hasChild     bool
 		folderToken  string
 		pageToken    string
-		setupMock    func(name string, di *DocumentNode, hasChild bool, folderToken, pageToken string)
+		setupMock    func(name string, dn *DocumentNode, hasChild bool, folderToken, pageToken string)
 		teardownMock func(name string)
 		want         *DocumentNode
 		wantError    string
 	}{
 		{
 			name: "hasChild为false",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "FolderToken",
 					Name:             "Name",
@@ -377,7 +411,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 			hasChild:    false,
 			folderToken: "FolderToken",
 			pageToken:   "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, folderToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, folderToken, pageToken string) {
 			},
 			teardownMock: func(name string) {
 			},
@@ -399,7 +433,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 		},
 		{
 			name: "请求成功，没有递归",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "FolderToken",
 					Name:             "Name",
@@ -414,7 +448,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 			hasChild:    true,
 			folderToken: "FolderToken",
 			pageToken:   "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, folderToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, folderToken, pageToken string) {
 				// 模拟 DriveList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/drive/v1/files").
@@ -461,7 +495,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 		},
 		{
 			name: "请求失败，一次递归",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "boxbc0dGSMu23m7QkC1bvabcef",
 					Name:             "Name",
@@ -476,7 +510,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 			hasChild:    true,
 			folderToken: "boxbc0dGSMu23m7QkC1bvabcef",
 			pageToken:   "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, folderToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, folderToken, pageToken string) {
 				// 模拟 DriveList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/drive/v1/files").
@@ -530,7 +564,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 		},
 		{
 			name: "请求成功，两次递归",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "boxbc0dGSMu23m7QkC1bvabcef",
 					Name:             "Name",
@@ -545,7 +579,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 			hasChild:    true,
 			folderToken: "boxbc0dGSMu23m7QkC1bvabcef",
 			pageToken:   "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, folderToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, folderToken, pageToken string) {
 				// 模拟 DriveList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/drive/v1/files").
@@ -657,7 +691,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 		},
 		{
 			name: "响应500失败",
-			di: &DocumentNode{
+			dn: &DocumentNode{
 				DocumentInfo: DocumentInfo{
 					Token:            "boxbc0dGSMu23m7QkC1bvabcef",
 					Name:             "Name",
@@ -672,7 +706,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 			hasChild:    true,
 			folderToken: "boxbc0dGSMu23m7QkC1bvabcef",
 			pageToken:   "PageToken",
-			setupMock: func(name string, di *DocumentNode, hasChild bool, folderToken, pageToken string) {
+			setupMock: func(name string, dn *DocumentNode, hasChild bool, folderToken, pageToken string) {
 				// 模拟 DriveList 的 API 响应
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/drive/v1/files").
@@ -758,8 +792,8 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			tt.setupMock(tt.name, tt.di, tt.hasChild, tt.folderToken, tt.pageToken)
-			err := s.client.fetchDriveDescendant(tt.di, tt.hasChild, tt.folderToken, tt.pageToken)
+			tt.setupMock(tt.name, tt.dn, tt.hasChild, tt.folderToken, tt.pageToken)
+			err := s.client.fetchDriveDescendant(tt.dn, tt.hasChild, tt.folderToken, tt.pageToken)
 			tt.teardownMock(tt.name)
 			if err != nil || tt.wantError != "" {
 				s.Require().Error(err, tt.name)
@@ -771,7 +805,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 				s.Equal(tt.wantError, actualError.Error(), tt.name)
 			} else {
 				s.Require().NoError(err, tt.name)
-				s.Equal(tt.want, tt.di, tt.name)
+				s.Equal(tt.want, tt.dn, tt.name)
 			}
 		})
 	}

@@ -159,10 +159,12 @@ function build() {
 
 # 运行测试
 function test() {
+    echo "运行单元测试统计覆盖率--------------------------------"
     # 跑单测并统计覆盖率到html
     # main.go添加了!test构建标签，这里用于将main.go排除到单测覆盖之外
     go test -tags=test -race -coverprofile=coverage.out -covermode=atomic "${SCRIPT_DIR}/..."
     go tool cover -html=coverage.out -o coverage.html
+    echo "覆盖率存放在coverage.html中---------------------------"
 }
 
 # 运行程序
@@ -289,8 +291,10 @@ case "$1" in
         run
         ;;
     test)
-        fmt
-        lint $2
+        if [[ "$2" != "-t" ]]; then
+            fmt
+            lint $2
+        fi
         test
         ;;
     fmt)

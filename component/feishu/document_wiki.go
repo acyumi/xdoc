@@ -9,10 +9,9 @@ import (
 	"github.com/samber/oops"
 
 	"github.com/acyumi/xdoc/component/constant"
-	"github.com/acyumi/xdoc/component/progress"
 )
 
-func (c *ClientImpl) DownloadWikiDocuments(token string) error {
+func (c *ClientImpl) QueryWikiDocuments(token string) (*DocumentNode, error) {
 	// 创建请求对象
 	req := larkwiki.NewGetNodeSpaceReqBuilder().Token(token).ObjType(`wiki`).Build()
 	// 发起请求
@@ -21,23 +20,22 @@ func (c *ClientImpl) DownloadWikiDocuments(token string) error {
 	})
 	// 处理错误
 	if err != nil {
-		return oops.Wrap(err)
+		return nil, oops.Wrap(err)
 	}
 
 	node := resp.Data.Node
-	di := c.wikiNodeToDocumentNode(node)
+	dn := c.wikiNodeToDocumentNode(node)
 
 	hasChild := larkcore.BoolValue(node.HasChild)
-	err = c.fetchWikiDescendant(di, hasChild, di.SpaceID, di.NodeToken, "")
+	err = c.fetchWikiDescendant(dn, hasChild, dn.SpaceID, dn.NodeToken, "")
 	if err != nil {
-		return oops.Wrap(err)
+		return nil, oops.Wrap(err)
 	}
 
-	task := c.CreateTask(di, progress.NewProgram)
-	return doExportAndDownload(task)
+	return dn, nil
 }
 
-func (c *ClientImpl) DownloadWikiSpaceDocuments(spaceID string) error {
+func (c *ClientImpl) QueryWikiSpaceDocuments(spaceID string) (*DocumentNode, error) {
 	req := larkwiki.NewGetSpaceReqBuilder().SpaceId(spaceID).Lang(`zh`).Build()
 	// 发起请求
 	resp, err := SendWithRetry(func(_ int) (*larkwiki.GetSpaceResp, error) {
@@ -45,20 +43,19 @@ func (c *ClientImpl) DownloadWikiSpaceDocuments(spaceID string) error {
 	})
 	// 处理错误
 	if err != nil {
-		return oops.Wrap(err)
+		return nil, oops.Wrap(err)
 	}
 	name := larkcore.StringValue(resp.Data.Space.Name)
-	var di = &DocumentNode{DocumentInfo: DocumentInfo{Name: name, SpaceID: spaceID, Token: spaceID, Type: constant.DocTypeFolder}}
-	err = c.fetchWikiDescendant(di, true, di.SpaceID, di.NodeToken, "")
+	var dn = &DocumentNode{DocumentInfo: DocumentInfo{Name: name, SpaceID: spaceID, Token: spaceID, Type: constant.DocTypeFolder}}
+	err = c.fetchWikiDescendant(dn, true, dn.SpaceID, dn.NodeToken, "")
 	if err != nil {
-		return oops.Wrap(err)
+		return nil, oops.Wrap(err)
 	}
 
-	task := c.CreateTask(di, progress.NewProgram)
-	return doExportAndDownload(task)
+	return dn, nil
 }
 
-func (c *ClientImpl) fetchWikiDescendant(di *DocumentNode, hasChild bool,
+func (c *ClientImpl) fetchWikiDescendant(dn *DocumentNode, hasChild bool,
 	spaceID, parentNodeToken, pageToken string) error {
 	if !hasChild {
 		return nil
@@ -89,7 +86,7 @@ func (c *ClientImpl) fetchWikiDescendant(di *DocumentNode, hasChild bool,
 	for _, node := range resp.Data.Items {
 		// 先判断文档类型，看是否可以下载
 		child := c.wikiNodeToDocumentNode(node)
-		di.Children = append(di.Children, child)
+		dn.Children = append(dn.Children, child)
 		// 然后再判断有没有子节点
 		hasChild := larkcore.BoolValue(node.HasChild)
 		err = c.fetchWikiDescendant(child, hasChild, spaceID, child.NodeToken, "")
@@ -101,7 +98,7 @@ func (c *ClientImpl) fetchWikiDescendant(di *DocumentNode, hasChild bool,
 
 	if larkcore.BoolValue(resp.Data.HasMore) {
 		pageToken = larkcore.StringValue(resp.Data.PageToken)
-		err = c.fetchWikiDescendant(di, true, spaceID, parentNodeToken, pageToken)
+		err = c.fetchWikiDescendant(dn, true, spaceID, parentNodeToken, pageToken)
 		if err != nil {
 			return oops.Wrap(err)
 		}
@@ -111,15 +108,15 @@ func (c *ClientImpl) fetchWikiDescendant(di *DocumentNode, hasChild bool,
 }
 
 func (c *ClientImpl) wikiNodeToDocumentNode(node *larkwiki.Node) *DocumentNode {
-	var di = &DocumentNode{}
-	di.Name = larkcore.StringValue(node.Title)
-	di.Name = cleanName(di.Name)
-	di.Type = constant.DocType(larkcore.StringValue(node.ObjType))
-	di.Token = larkcore.StringValue(node.ObjToken)
-	setFileExtension(di, c.Args)
+	var dn = &DocumentNode{}
+	dn.Name = larkcore.StringValue(node.Title)
+	dn.Name = cleanName(dn.Name)
+	dn.Type = constant.DocType(larkcore.StringValue(node.ObjType))
+	dn.Token = larkcore.StringValue(node.ObjToken)
+	setFileExtension(dn, c.Args)
 	// 取节点token
-	di.NodeToken = larkcore.StringValue(node.NodeToken)
+	dn.NodeToken = larkcore.StringValue(node.NodeToken)
 	// 取wiki的知识空间ID
-	di.SpaceID = larkcore.StringValue(node.SpaceId)
-	return di
+	dn.SpaceID = larkcore.StringValue(node.SpaceId)
+	return dn
 }

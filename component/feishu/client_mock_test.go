@@ -33,7 +33,7 @@ func (_m *MockClient) EXPECT() *MockClient_Expecter {
 }
 
 // CreateTask provides a mock function with given fields: docs, programConstructor
-func (_m *MockClient) CreateTask(docs *DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task {
+func (_m *MockClient) CreateTask(docs []*DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task {
 	ret := _m.Called(docs, programConstructor)
 
 	if len(ret) == 0 {
@@ -41,7 +41,7 @@ func (_m *MockClient) CreateTask(docs *DocumentNode, programConstructor func(pro
 	}
 
 	var r0 cloud.Task
-	if rf, ok := ret.Get(0).(func(*DocumentNode, func(progress.Stats) progress.IProgram) cloud.Task); ok {
+	if rf, ok := ret.Get(0).(func([]*DocumentNode, func(progress.Stats) progress.IProgram) cloud.Task); ok {
 		r0 = rf(docs, programConstructor)
 	} else {
 		if ret.Get(0) != nil {
@@ -58,15 +58,15 @@ type MockClient_CreateTask_Call struct {
 }
 
 // CreateTask is a helper method to define mock.On call
-//   - docs *DocumentNode
+//   - docs []*DocumentNode
 //   - programConstructor func(progress.Stats) progress.IProgram
 func (_e *MockClient_Expecter) CreateTask(docs any, programConstructor any) *MockClient_CreateTask_Call {
 	return &MockClient_CreateTask_Call{Call: _e.mock.On("CreateTask", docs, programConstructor)}
 }
 
-func (_c *MockClient_CreateTask_Call) Run(run func(docs *DocumentNode, programConstructor func(progress.Stats) progress.IProgram)) *MockClient_CreateTask_Call {
+func (_c *MockClient_CreateTask_Call) Run(run func(docs []*DocumentNode, programConstructor func(progress.Stats) progress.IProgram)) *MockClient_CreateTask_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*DocumentNode), args[1].(func(progress.Stats) progress.IProgram))
+		run(args[0].([]*DocumentNode), args[1].(func(progress.Stats) progress.IProgram))
 	})
 	return _c
 }
@@ -76,22 +76,22 @@ func (_c *MockClient_CreateTask_Call) Return(_a0 cloud.Task) *MockClient_CreateT
 	return _c
 }
 
-func (_c *MockClient_CreateTask_Call) RunAndReturn(run func(*DocumentNode, func(progress.Stats) progress.IProgram) cloud.Task) *MockClient_CreateTask_Call {
+func (_c *MockClient_CreateTask_Call) RunAndReturn(run func([]*DocumentNode, func(progress.Stats) progress.IProgram) cloud.Task) *MockClient_CreateTask_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// DownloadDocuments provides a mock function with given fields: typ, token
-func (_m *MockClient) DownloadDocuments(typ string, token string) error {
-	ret := _m.Called(typ, token)
+// DownloadDocuments provides a mock function with given fields: _a0
+func (_m *MockClient) DownloadDocuments(_a0 []*cloud.DocumentSource) error {
+	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DownloadDocuments")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string) error); ok {
-		r0 = rf(typ, token)
+	if rf, ok := ret.Get(0).(func([]*cloud.DocumentSource) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -105,15 +105,14 @@ type MockClient_DownloadDocuments_Call struct {
 }
 
 // DownloadDocuments is a helper method to define mock.On call
-//   - typ string
-//   - token string
-func (_e *MockClient_Expecter) DownloadDocuments(typ any, token any) *MockClient_DownloadDocuments_Call {
-	return &MockClient_DownloadDocuments_Call{Call: _e.mock.On("DownloadDocuments", typ, token)}
+//   - _a0 []*cloud.DocumentSource
+func (_e *MockClient_Expecter) DownloadDocuments(_a0 any) *MockClient_DownloadDocuments_Call {
+	return &MockClient_DownloadDocuments_Call{Call: _e.mock.On("DownloadDocuments", _a0)}
 }
 
-func (_c *MockClient_DownloadDocuments_Call) Run(run func(typ string, token string)) *MockClient_DownloadDocuments_Call {
+func (_c *MockClient_DownloadDocuments_Call) Run(run func(_a0 []*cloud.DocumentSource)) *MockClient_DownloadDocuments_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string))
+		run(args[0].([]*cloud.DocumentSource))
 	})
 	return _c
 }
@@ -123,7 +122,7 @@ func (_c *MockClient_DownloadDocuments_Call) Return(_a0 error) *MockClient_Downl
 	return _c
 }
 
-func (_c *MockClient_DownloadDocuments_Call) RunAndReturn(run func(string, string) error) *MockClient_DownloadDocuments_Call {
+func (_c *MockClient_DownloadDocuments_Call) RunAndReturn(run func([]*cloud.DocumentSource) error) *MockClient_DownloadDocuments_Call {
 	_c.Call.Return(run)
 	return _c
 }

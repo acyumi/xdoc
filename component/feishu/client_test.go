@@ -3,8 +3,10 @@ package feishu
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -13,9 +15,11 @@ import (
 	larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
 	larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
 	"github.com/samber/oops"
+	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/progress"
@@ -27,12 +31,17 @@ func TestClientImplSuite(t *testing.T) {
 
 type ClientImplTestSuite struct {
 	suite.Suite
-	client   *ClientImpl
-	args     *argument.Args
-	mockTask *mockTask
+	client              *ClientImpl
+	args                *argument.Args
+	originMarshalIndent func(v any, prefix, indent string) ([]byte, error)
+	memFs               *afero.Afero
+	mockTask            *MockTask
 }
 
 func (s *ClientImplTestSuite) SetupSuite() {
+	s.originMarshalIndent = app.MarshalIndent
+	useMemMapFs()
+	s.memFs = app.Fs
 }
 
 func (s *ClientImplTestSuite) SetupTest() {
@@ -42,8 +51,8 @@ func (s *ClientImplTestSuite) SetupTest() {
 		StartTime: time.Now(),
 	}).(*ClientImpl)
 	s.args = s.client.GetArgs()
-	s.mockTask = new(mockTask)
-	s.client.TaskCreator = func(args *argument.Args, docs *DocumentNode) cloud.Task {
+	s.mockTask = NewMockTask(s.T())
+	s.client.TaskCreator = func(args *argument.Args, docs []*DocumentNode) cloud.Task {
 		return s.mockTask
 	}
 }
@@ -69,7 +78,7 @@ func (s *ClientImplTestSuite) TestClientImpl_Validate() {
 				c.SetArgs(&argument.Args{
 					AppID:     "cli_xxx",
 					AppSecret: "xxx",
-					DocURL:    "x",
+					DocURLs:   []string{"x"},
 					SaveDir:   "/tmp",
 				})
 				return &c
@@ -92,21 +101,122 @@ func (s *ClientImplTestSuite) TestClientImpl_Validate() {
 	}
 }
 
+type mockFs struct {
+	afero.Fs
+	openFileHasErr bool
+}
+
+func (f *mockFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
+	if f.openFileHasErr {
+		return nil, oops.New("创建文件失败")
+	}
+	return f.Fs.OpenFile(name, flag, perm)
+}
+
 func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 	checkAuthenticated()
 	tests := []struct {
-		name      string
-		typ       string
-		token     string
-		setupMock func(mt *mockTask, name string)
-		wantError string
-		want      func(mt *mockTask, name string)
+		name         string
+		typ          string
+		token        string
+		setupMock    func(mt *MockTask, name string)
+		teardownMock func(mt *MockTask, name string)
+		wantCode     string
+		wantError    string
 	}{
+		{
+			name:  "只列出文件树",
+			typ:   "/wiki/settings",
+			token: "6946843325487912366",
+			setupMock: func(mt *MockTask, name string) {
+				s.mockWikiSettingsServer("6946843325487912366")
+				s.args.ListOnly = true
+			},
+			teardownMock: func(mt *MockTask, name string) {
+				s.args.SaveDir = ""
+				s.args.ListOnly = false
+				defer gock.Off()
+				s.True(gock.IsDone(), name)
+			},
+			wantError: "",
+		},
+		{
+			name:  "列出文件树后创建任务执行",
+			typ:   "/wiki/settings",
+			token: "6946843325487912366",
+			setupMock: func(mt *MockTask, name string) {
+				s.mockWikiSettingsServer("6946843325487912366")
+				s.args.ListOnly = false
+				s.mockTask.EXPECT().Validate().Return(nil).Once()
+				s.mockTask.EXPECT().Run().Return(nil).Once()
+				s.mockTask.EXPECT().Close().Return().Once()
+			},
+			teardownMock: func(mt *MockTask, name string) {
+				s.args.SaveDir = ""
+				s.args.ListOnly = false
+				defer gock.Off()
+				s.True(gock.IsDone(), name)
+			},
+			wantError: "",
+		},
+		{
+			name:  "创建目录失败",
+			typ:   "/wiki/settings",
+			token: "6946843325487912366",
+			setupMock: func(mt *MockTask, name string) {
+				s.mockWikiSettingsServer("6946843325487912366")
+				s.args.ListOnly = true
+				useFs(&afero.Afero{Fs: afero.NewReadOnlyFs(app.Fs)})
+			},
+			teardownMock: func(mt *MockTask, name string) {
+				s.args.SaveDir = ""
+				s.args.ListOnly = false
+				defer gock.Off()
+				s.True(gock.IsDone(), name)
+			},
+			wantError: "operation not permitted",
+		},
+		{
+			name:  "MarshalIndent失败",
+			typ:   "/wiki/settings",
+			token: "6946843325487912366",
+			setupMock: func(mt *MockTask, name string) {
+				s.mockWikiSettingsServer("6946843325487912366")
+				s.args.ListOnly = true
+				app.MarshalIndent = func(v any, prefix, indent string) ([]byte, error) {
+					return nil, errors.New("MarshalIndent失败")
+				}
+			},
+			teardownMock: func(mt *MockTask, name string) {
+				s.args.SaveDir = ""
+				s.args.ListOnly = false
+				defer gock.Off()
+				s.True(gock.IsDone(), name)
+			},
+			wantError: "MarshalIndent失败",
+		},
+		{
+			name:  "写入文件失败",
+			typ:   "/wiki/settings",
+			token: "6946843325487912345",
+			setupMock: func(mt *MockTask, name string) {
+				s.mockWikiSettingsServer("6946843325487912345")
+				s.args.ListOnly = true
+				useFs(&afero.Afero{Fs: &mockFs{Fs: afero.NewMemMapFs(), openFileHasErr: true}})
+			},
+			teardownMock: func(mt *MockTask, name string) {
+				s.args.SaveDir = ""
+				s.args.ListOnly = false
+				defer gock.Off()
+				s.True(gock.IsDone(), name)
+			},
+			wantError: "写入文件失败: 创建文件失败",
+		},
 		{
 			name:  "/wiki",
 			typ:   "/wiki",
 			token: "token233",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/get_node").
 					MatchParam("obj_type", "wiki").
@@ -115,17 +225,17 @@ func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(mt *MockTask, name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "/wiki/settings",
 			typ:   "/wiki/settings",
 			token: "token233",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 				gock.New("https://open.feishu.cn").
 					Get("/open-apis/wiki/v2/spaces/token233").
 					PathParam("spaces", "token233").
@@ -133,17 +243,17 @@ func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(mt *MockTask, name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "/drive/folder",
 			typ:   "/drive/folder",
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -159,17 +269,17 @@ func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(mt *MockTask, name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "/docs",
 			typ:   "/docs",
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -185,17 +295,17 @@ func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(mt *MockTask, name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "/docx",
 			typ:   "/docx",
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -211,17 +321,17 @@ func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(mt *MockTask, name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "/sheets",
 			typ:   "/sheets",
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -237,17 +347,17 @@ func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(mt *MockTask, name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "/file",
 			typ:   "/file",
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 				gock.New("https://open.feishu.cn").
 					Post("/open-apis/drive/v1/metas/batch_query").
 					// 指定请求的Content-Type(主要是多了utf-8部分)，否则会报错 gock.MockMatcher 匹配不上
@@ -263,32 +373,101 @@ func (s *ClientImplTestSuite) TestClientImpl_DownloadDocuments() {
 					AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
 					JSON(`{"code": 500,"msg": "something wrong"}`)
 			},
-			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
-			want: func(mt *mockTask, name string) {
+			teardownMock: func(mt *MockTask, name string) {
 				defer gock.Off()
 				s.True(gock.IsDone(), name)
 			},
+			wantError: "logId: \x1b]8;;https://open.feishu.cn/search?q=xyz\x1b\\, error response: \n{\n  Code: 500,\n  Msg: \"something wrong\"\n}",
 		},
 		{
 			name:  "不支持的类型",
 			typ:   "/xxx",
 			token: "token",
-			setupMock: func(mt *mockTask, name string) {
+			setupMock: func(mt *MockTask, name string) {
 			},
+			teardownMock: func(mt *MockTask, name string) {
+			},
+			wantCode:  "InvalidArgument",
 			wantError: "不支持的飞书云文档类型: /xxx\n",
-			want: func(mt *mockTask, name string) {
-			},
 		},
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
+			defer func() {
+				app.MarshalIndent = s.originMarshalIndent
+				useFs(s.memFs)
+			}()
 			tt.setupMock(s.mockTask, tt.name)
-			err := s.client.DownloadDocuments(tt.typ, tt.token)
+			err := s.client.DownloadDocuments([]*cloud.DocumentSource{{Type: tt.typ, Token: tt.token}})
 			if err != nil || tt.wantError != "" {
-				s.Require().EqualError(err, tt.wantError, tt.name)
+				s.Require().Error(err, tt.name)
+				s.IsType(oops.OopsError{}, err, tt.name)
+				var actualError oops.OopsError
+				yes := errors.As(err, &actualError)
+				s.Require().True(yes, tt.name)
+				s.Equal(tt.wantCode, actualError.Code(), tt.name)
+				s.Equal(tt.wantError, actualError.Error(), tt.name)
 			}
 		})
 	}
+}
+
+func (s *ClientImplTestSuite) mockWikiSettingsServer(spaceID string) {
+	s.args.SaveDir = "/tmp"
+	gock.New("https://open.feishu.cn").
+		Get("/open-apis/wiki/v2/spaces/"+spaceID).
+		PathParam("spaces", spaceID).
+		Reply(200).
+		AddHeader(larkcore.HttpHeaderKeyLogId, "xyz").
+		JSON(`{
+    "code": 0,
+    "msg": "success",
+    "data": {
+        "space": {
+            "name": "知识空间",
+            "description": "知识空间描述",
+            "space_id": "6946843325487912366"
+        }
+    }
+}`)
+	// 模拟 WikiNodeList 的 API 响应
+	gock.New("https://open.feishu.cn").
+		Get(fmt.Sprintf("/open-apis/wiki/v2/spaces/%s/nodes", spaceID)).
+		PathParam("spaces", spaceID).
+		MatchParams(map[string]string{
+			"parent_node_token": "",
+			"page_token":        "",
+			"page_size":         "50",
+		}).
+		Reply(200).
+		JSON(fmt.Sprintf(`{
+    "code": 0,
+    "msg": "success",
+    "data": {
+        "items": [
+            {
+                "space_id": "%s",
+                "node_token": "wikcnKQ1k3pxxxxxx8Vabceg",
+                "obj_token": "doccnzAaODxxxxxxWabcdeg",
+                "obj_type": "doc",
+                "parent_node_token": "wikcnKQ1k3pxxxxxx8Vabceg",
+                "node_type": "origin",
+                "origin_node_token": "wikcnKQ1k3pxxxxxx8Vabceg",
+                "origin_space_id": "6946843325487912356",
+                "has_child": false,
+                "title": "标题",
+                "obj_create_time": "1642402428",
+                "obj_edit_time": "1642402428",
+                "node_create_time": "1642402428",
+                "creator": "ou_xxxxx",
+                "owner": "ou_xxxxx",
+                "node_creator": "ou_xxxxx"
+            }
+        ],
+        "page_token": "",
+        "has_more": false
+    }
+}`, spaceID))
 }
 
 func (s *ClientImplTestSuite) TestClientImpl_CreateTask() {
@@ -308,7 +487,7 @@ func (s *ClientImplTestSuite) TestClientImpl_CreateTask() {
 	task = s.client.CreateTask(nil, nil)
 	err = task.Validate()
 	s.Require().Error(err)
-	s.Require().EqualError(err, "Client: Args: DocURL: url是必需参数; SaveDir: dir是必需参数..; Docs: cannot be blank; ProgramConstructor: cannot be blank.")
+	s.Require().EqualError(err, "Client: Args: DocURLs: urls是必需参数; SaveDir: dir是必需参数..; Docs: cannot be blank; ProgramConstructor: cannot be blank.")
 }
 
 type MockSuccess struct {

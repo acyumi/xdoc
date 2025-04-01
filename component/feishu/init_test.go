@@ -45,9 +45,13 @@ func testInitBackOff(ebo *backoff.ExponentialBackOff) {
 }
 
 func useMemMapFs() {
+	useFs(&afero.Afero{Fs: afero.NewMemMapFs()})
+}
+
+func useFs(fs *afero.Afero) {
 	mu.Lock()
 	defer mu.Unlock()
-	app.Fs = &afero.Afero{Fs: afero.NewMemMapFs()}
+	app.Fs = fs
 }
 
 func cleanSleep() {

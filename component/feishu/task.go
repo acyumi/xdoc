@@ -1,12 +1,9 @@
 package feishu
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,7 +14,6 @@ import (
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
-	"github.com/xlab/treeprint"
 
 	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/progress"
@@ -25,7 +21,7 @@ import (
 
 type TaskImpl struct {
 	Client             Client                                 //
-	Docs               *DocumentNode                          //
+	Docs               []*DocumentNode                        //
 	ProgramConstructor func(progress.Stats) progress.IProgram //
 
 	canDownloadList []*DocumentInfo    //
@@ -47,40 +43,21 @@ func (t TaskImpl) Validate() (err error) {
 }
 
 func (t *TaskImpl) Run() (err error) {
-	args := t.Client.GetArgs()
-	// 将查询到的文档树信息保存到文件中
-	// 创建目录
-	err = app.Fs.MkdirAll(args.SaveDir, 0o755)
-	if err != nil {
-		return oops.Wrap(err)
-	}
-	// 将文档树信息保存到document-tree.json文件中
-	filePath := filepath.Join(args.SaveDir, "document-tree.json")
-	diBytes, err := json.MarshalIndent(t.Docs, "", "  ")
-	if err != nil {
-		return oops.Wrap(err)
-	}
-	err = app.Fs.WriteFile(filePath, diBytes, 0o644)
-	if err != nil {
-		return oops.Errorf("写入文件失败: %+v", err)
-	}
-
-	fmt.Println("预计将目录或文件保存如下:")
-	tree := treeprint.NewWithRoot(args.SaveDir)
-	totalCount, canDownloadCount := printTree(os.Stdout, tree, t.Docs, 0, 0)
-	fmt.Printf("\n查询总数量: %d, 可下载文档数量: %d\n", totalCount, canDownloadCount)
-	fmt.Println("----------------------------------------------")
-	if args.ListOnly {
-		return nil
-	}
-
+	startTime := time.Now()
 	fmt.Println("阶段2: 下载飞书云文档")
 	fmt.Println("--------------------------")
-	// 将树结构转为平铺的列表（复制为两个列表，一个供导出任务使用，一个供下载文件使用）
-	infoList := documentTreeToInfoList(t.Docs, args.SaveDir)
+	defer func() {
+		fmt.Println("--------------------------")
+		fmt.Printf("阶段2, 耗时: %s\n", time.Since(startTime).String())
+	}()
+
+	args := t.Client.GetArgs()
+	// 将树结构转为平铺的列表
+	infoList := documentNodesToInfoList(t.Docs, args.SaveDir)
 
 	// 初始化必要参数备用
 	t.canDownloadList = lo.Filter(infoList, func(di *DocumentInfo, _ int) bool { return di.CanDownload })
+	canDownloadCount := len(t.canDownloadList)
 	t.program = t.ProgramConstructor(calculateOverallProgress(canDownloadCount))
 	t.countDown = &atomic.Int32{}
 	t.countDown.Store(int32(canDownloadCount))
