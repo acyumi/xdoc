@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# Copyright 2025 acyumi <417064257@qq.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 ###
 # 为什么不用Makefile，因为windows系统下默认不支持make，需要自行安装，还挺麻烦
 # 而大家基本上都会安装git，有gitbash就可以用bash执行shell脚本了
@@ -44,6 +58,8 @@ DEPENDENCIES=(
     "golangci-lint:github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.6"
     # Mock生成工具
     "mockery:github.com/vektra/mockery/v2@v2.53.2"
+    # License添加工具
+    "addlicense:github.com/google/addlicense@latest"
 )
 
 # 获取工具库版本
@@ -215,6 +231,9 @@ function fmt() {
         echo "tagalign 修改如下:"
         echo "${result}"
     fi
+
+    echo "检查添加 license..."
+    addlicense -c "acyumi <417064257@qq.com>" .
 
     echo "整理 go.mod..."
     go mod tidy
