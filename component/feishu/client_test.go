@@ -46,7 +46,7 @@ func TestClientImplSuite(t *testing.T) {
 type ClientImplTestSuite struct {
 	suite.Suite
 	client              *ClientImpl
-	args                *argument.Args
+	args                *Args
 	originMarshalIndent func(v any, prefix, indent string) ([]byte, error)
 	memFs               *afero.Afero
 	mockTask            *MockTask
@@ -59,14 +59,16 @@ func (s *ClientImplTestSuite) SetupSuite() {
 }
 
 func (s *ClientImplTestSuite) SetupTest() {
-	s.client = NewClient(&argument.Args{
+	s.client = NewClient(&Args{
 		AppID:     "cli_xxx",
 		AppSecret: "xxx",
-		StartTime: time.Now(),
+		Args: &argument.Args{
+			StartTime: time.Now(),
+		},
 	}).(*ClientImpl)
 	s.args = s.client.GetArgs()
 	s.mockTask = NewMockTask(s.T())
-	s.client.TaskCreator = func(args *argument.Args, docs []*DocumentNode) cloud.Task {
+	s.client.TaskCreator = func(args *Args, docs []*DocumentNode) cloud.Task {
 		return s.mockTask
 	}
 }
@@ -89,7 +91,7 @@ func (s *ClientImplTestSuite) TestClientImpl_Validate() {
 			name: "正常",
 			client: func() *ClientImpl {
 				var c ClientImpl
-				c.SetArgs(&argument.Args{
+				c.SetArgs(&Args{
 					AppID:     "cli_xxx",
 					AppSecret: "xxx",
 					DocURLs:   []string{"x"},

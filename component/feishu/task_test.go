@@ -167,10 +167,12 @@ func (s *TaskImplTestSuite) TestTaskImpl_Run() {
 						},
 					},
 				}
-				args.mockClient.EXPECT().GetArgs().Return(&argument.Args{
-					SaveDir:           "/tmp",
-					ListOnly:          false,
-					QuitAutomatically: true,
+				args.mockClient.EXPECT().GetArgs().Return(&Args{
+					SaveDir:  "/tmp",
+					ListOnly: false,
+					Args: &argument.Args{
+						QuitAutomatically: true,
+					},
 				}).Maybe()
 				args.mockProgram.EXPECT().Run().Return(nil, nil).Once()
 				args.mockProgram.EXPECT().Quit().Maybe()
@@ -217,10 +219,12 @@ func (s *TaskImplTestSuite) TestTaskImpl_Run() {
 						},
 					},
 				}
-				args.mockClient.EXPECT().GetArgs().Return(&argument.Args{
-					SaveDir:           "/tmp",
-					ListOnly:          false,
-					QuitAutomatically: true,
+				args.mockClient.EXPECT().GetArgs().Return(&Args{
+					SaveDir:  "/tmp",
+					ListOnly: false,
+					Args: &argument.Args{
+						QuitAutomatically: true,
+					},
 				}).Maybe() // 可能结束太快没调用到，所以用maybe
 				args.mockProgram.EXPECT().Run().Return(nil, oops.New("下载UI程序报错")).Once()
 				args.mockProgram.EXPECT().Quit().Maybe()
@@ -689,7 +693,7 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 				s.task.countDown = &atomic.Int32{}
 				s.task.completed.Store(false)
 				s.task.queue = make(chan *exportResult, 2)
-				s.mockClient.EXPECT().GetArgs().Return(&argument.Args{QuitAutomatically: true}).Maybe()
+				s.mockClient.EXPECT().GetArgs().Return(&Args{Args: &argument.Args{QuitAutomatically: true}}).Maybe()
 				s.mockProgram.EXPECT().Quit().Maybe()
 				return nil
 			},
@@ -781,7 +785,7 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 					"total: %d, wrote: %d", int64(len(exportedContent)), mock.Anything).Maybe()
 				s.mockProgram.EXPECT().Update(di1.FilePath, 1.00, progress.StatusCompleted).Once()
 				s.mockProgram.EXPECT().Update(di2.FilePath, 1.00, progress.StatusCompleted).Once()
-				s.mockClient.EXPECT().GetArgs().Return(&argument.Args{QuitAutomatically: true}).Maybe()
+				s.mockClient.EXPECT().GetArgs().Return(&Args{Args: &argument.Args{QuitAutomatically: true}}).Maybe()
 				s.mockProgram.EXPECT().Quit().Maybe()
 				return []any{exportResults}
 			},
@@ -837,7 +841,7 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 				s.task.queue = make(chan *exportResult, 2)
 				s.mockExporter.EXPECT().doDownloadExported(di1.FilePath, di1.Token).Return(nil, oops.New("下载失败")).Once()
 				s.mockProgram.EXPECT().Update(di1.FilePath, 0.18, progress.StatusFailed, "下载失败").Once()
-				s.mockClient.EXPECT().GetArgs().Return(&argument.Args{QuitAutomatically: true}).Maybe()
+				s.mockClient.EXPECT().GetArgs().Return(&Args{Args: &argument.Args{QuitAutomatically: true}}).Maybe()
 				s.mockProgram.EXPECT().Quit().Maybe()
 				return []any{exportResults}
 			},
@@ -922,7 +926,7 @@ func (s *TaskImplTestSuite) TestTaskImpl_downloadDocuments() {
 				useFs(&afero.Afero{Fs: afero.NewReadOnlyFs(app.Fs)})
 				s.mockProgram.EXPECT().Update(di1.FilePath, 0.20, progress.StatusFailed, "operation not permitted").Once()
 				s.mockProgram.EXPECT().Update(di2.FilePath, 0.20, progress.StatusFailed, "operation not permitted").Once()
-				s.mockClient.EXPECT().GetArgs().Return(&argument.Args{QuitAutomatically: true}).Maybe()
+				s.mockClient.EXPECT().GetArgs().Return(&Args{Args: &argument.Args{QuitAutomatically: true}}).Maybe()
 				s.mockProgram.EXPECT().Quit().Maybe()
 				return []any{exportResults}
 			},

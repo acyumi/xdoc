@@ -16,14 +16,37 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 	"time"
 
 	"github.com/spf13/afero"
+	"github.com/spf13/viper"
 )
 
 var (
 	MarshalIndent = json.MarshalIndent
+	Executable    = os.Executable
 
 	Fs    = &afero.Afero{Fs: afero.NewOsFs()}
 	Sleep = func(duration time.Duration) { time.Sleep(duration) } // 睡眠等待函数
 )
+
+func NewViper() *viper.Viper {
+	vip := viper.New()
+	vip.SetFs(Fs)
+	return vip
+}
+
+func Fprintln(out io.Writer, a ...any) {
+	_, _ = fmt.Fprintln(out, a...)
+}
+
+func Fprint(out io.Writer, a ...any) {
+	_, _ = fmt.Fprint(out, a...)
+}
+
+func Fprintf(out io.Writer, format string, a ...any) {
+	_, _ = fmt.Fprintf(out, format, a...)
+}

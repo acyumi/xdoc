@@ -62,7 +62,7 @@ url: "https://xxx.feishu.cn/wiki/xxx" # 注意应用需要有权限下载url对�
 dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子目录和文件
 ```
 
-更多参数及说明详见项目中的 [config-template](config-template.yaml)
+更多参数及说明详见项目中的 [config-template](cmd/config-template.yaml)
 
 
 

@@ -45,10 +45,12 @@ func (s *DocumentDriveTestSuite) SetupSuite() {
 }
 
 func (s *DocumentDriveTestSuite) SetupTest() {
-	s.client = NewClient(&argument.Args{
+	s.client = NewClient(&Args{
 		AppID:     "cli_xxx",
 		AppSecret: "xxx",
-		StartTime: time.Now(),
+		Args: &argument.Args{
+			StartTime: time.Now(),
+		},
 	}).(*ClientImpl)
 }
 
@@ -828,7 +830,7 @@ func (s *DocumentDriveTestSuite) Test_fetchDriveDescendant() {
 func (s *DocumentDriveTestSuite) TestClientImpl_fileToDocumentNode() {
 	type args struct {
 		file *larkdrive.File
-		args *argument.Args
+		args *Args
 	}
 	tests := []struct {
 		name string
@@ -852,7 +854,7 @@ func (s *DocumentDriveTestSuite) TestClientImpl_fileToDocumentNode() {
 					ModifiedTime: larkcore.StringPtr("ModifiedTime"),
 					OwnerId:      larkcore.StringPtr("OwnerId"),
 				},
-				args: &argument.Args{
+				args: &Args{
 					FileExtensions: map[constant.DocType]constant.FileExt{
 						constant.DocTypeDocx: constant.FileExtPDF,
 					},
@@ -885,7 +887,7 @@ func (s *DocumentDriveTestSuite) TestClientImpl_fileToDocumentNode() {
 					ModifiedTime: larkcore.StringPtr("ModifiedTime"),
 					OwnerId:      larkcore.StringPtr("OwnerId"),
 				},
-				args: &argument.Args{
+				args: &Args{
 					FileExtensions: map[constant.DocType]constant.FileExt{
 						constant.DocTypeDoc: constant.FileExtPDF,
 					},

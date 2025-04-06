@@ -27,7 +27,7 @@ import (
 )
 
 type Client interface {
-	cloud.Client
+	cloud.Client[*Args]
 
 	// CreateTask 创建批量下载文件的任务
 	CreateTask(docs []*DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task

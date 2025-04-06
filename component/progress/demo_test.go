@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/acyumi/xdoc/component/app"
+	"github.com/acyumi/xdoc/component/cloud"
 )
 
 func TestDemoSuite(t *testing.T) {
@@ -44,7 +45,7 @@ func (s *DemoTestSuite) TearDownTest() {
 
 func (s *DemoTestSuite) TestDemo() {
 	app.Sleep = func(duration time.Duration) { /* 单测时不需要睡眠等待 */ }
-	c := NewTestClient(nil)
+	c := NewTestClient()
 	args := c.GetArgs()
 	s.Nil(args)
 	err := c.Validate()
@@ -62,5 +63,8 @@ func (s *DemoTestSuite) TestDemo() {
 	})
 
 	err = tc.DownloadDocuments(nil)
+	s.Require().EqualError(err, "文档源为空")
+
+	err = tc.DownloadDocuments([]*cloud.DocumentSource{nil})
 	s.Require().EqualError(err, "demo error")
 }

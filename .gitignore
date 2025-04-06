@@ -71,6 +71,8 @@ local.env
 local.yaml
 local.json
 config.yaml
+config-bak.yaml
+config-backup.yaml
 
 # Custom files
 custom.env

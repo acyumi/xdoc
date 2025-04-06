@@ -3,10 +3,9 @@
 package feishu
 
 import (
-	argument "github.com/acyumi/xdoc/component/argument"
-	cloud "github.com/acyumi/xdoc/component/cloud"
-
 	context "context"
+
+	cloud "github.com/acyumi/xdoc/component/cloud"
 
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 
@@ -572,19 +571,19 @@ func (_c *MockClient_ExportGet_Call) RunAndReturn(run func(context.Context, *lar
 }
 
 // GetArgs provides a mock function with no fields
-func (_m *MockClient) GetArgs() *argument.Args {
+func (_m *MockClient) GetArgs() *Args {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetArgs")
 	}
 
-	var r0 *argument.Args
-	if rf, ok := ret.Get(0).(func() *argument.Args); ok {
+	var r0 *Args
+	if rf, ok := ret.Get(0).(func() *Args); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*argument.Args)
+			r0 = ret.Get(0).(*Args)
 		}
 	}
 
@@ -608,18 +607,18 @@ func (_c *MockClient_GetArgs_Call) Run(run func()) *MockClient_GetArgs_Call {
 	return _c
 }
 
-func (_c *MockClient_GetArgs_Call) Return(_a0 *argument.Args) *MockClient_GetArgs_Call {
+func (_c *MockClient_GetArgs_Call) Return(_a0 *Args) *MockClient_GetArgs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *MockClient_GetArgs_Call) RunAndReturn(run func() *argument.Args) *MockClient_GetArgs_Call {
+func (_c *MockClient_GetArgs_Call) RunAndReturn(run func() *Args) *MockClient_GetArgs_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SetArgs provides a mock function with given fields: args
-func (_m *MockClient) SetArgs(args *argument.Args) {
+func (_m *MockClient) SetArgs(args *Args) {
 	_m.Called(args)
 }
 
@@ -629,14 +628,14 @@ type MockClient_SetArgs_Call struct {
 }
 
 // SetArgs is a helper method to define mock.On call
-//   - args *argument.Args
+//   - args *Args
 func (_e *MockClient_Expecter) SetArgs(args any) *MockClient_SetArgs_Call {
 	return &MockClient_SetArgs_Call{Call: _e.mock.On("SetArgs", args)}
 }
 
-func (_c *MockClient_SetArgs_Call) Run(run func(args *argument.Args)) *MockClient_SetArgs_Call {
+func (_c *MockClient_SetArgs_Call) Run(run func(args *Args)) *MockClient_SetArgs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*argument.Args))
+		run(args[0].(*Args))
 	})
 	return _c
 }
@@ -646,7 +645,7 @@ func (_c *MockClient_SetArgs_Call) Return() *MockClient_SetArgs_Call {
 	return _c
 }
 
-func (_c *MockClient_SetArgs_Call) RunAndReturn(run func(*argument.Args)) *MockClient_SetArgs_Call {
+func (_c *MockClient_SetArgs_Call) RunAndReturn(run func(*Args)) *MockClient_SetArgs_Call {
 	_c.Run(run)
 	return _c
 }

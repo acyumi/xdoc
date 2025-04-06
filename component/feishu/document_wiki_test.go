@@ -44,10 +44,12 @@ func (s *DocumentWikiTestSuite) SetupSuite() {
 }
 
 func (s *DocumentWikiTestSuite) SetupTest() {
-	s.client = NewClient(&argument.Args{
+	s.client = NewClient(&Args{
 		AppID:     "cli_xxx",
 		AppSecret: "xxx",
-		StartTime: time.Now(),
+		Args: &argument.Args{
+			StartTime: time.Now(),
+		},
 	}).(*ClientImpl)
 }
 
@@ -1180,7 +1182,7 @@ func (s *DocumentWikiTestSuite) Test_fetchWikiDescendant() {
 func (s *DocumentWikiTestSuite) TestClientImpl_wikiNodeToDocumentNode() {
 	type args struct {
 		node *larkwiki.Node
-		args *argument.Args
+		args *Args
 	}
 	tests := []struct {
 		name string
@@ -1208,7 +1210,7 @@ func (s *DocumentWikiTestSuite) TestClientImpl_wikiNodeToDocumentNode() {
 					Owner:           larkcore.StringPtr("Owner"),
 					NodeCreator:     larkcore.StringPtr("NodeCreator"),
 				},
-				args: &argument.Args{
+				args: &Args{
 					FileExtensions: map[constant.DocType]constant.FileExt{
 						constant.DocTypeDocx: constant.FileExtPDF,
 					},

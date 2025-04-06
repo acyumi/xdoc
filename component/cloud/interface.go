@@ -16,8 +16,6 @@ package cloud
 
 import (
 	validation "github.com/go-ozzo/ozzo-validation"
-
-	"github.com/acyumi/xdoc/component/argument"
 )
 
 // DocumentSource 文档源信息。
@@ -27,12 +25,12 @@ type DocumentSource struct {
 }
 
 // Client 云客户端。
-type Client interface {
+type Client[A any] interface {
 	validation.Validatable
 	// SetArgs 设置参数，可以在此方法中初始化客户端
-	SetArgs(args *argument.Args)
+	SetArgs(args A)
 	// GetArgs 获取参数
-	GetArgs() *argument.Args
+	GetArgs() A
 	// 	DownloadDocuments 下载文档，下载过程中可通过实现和创建 Task 来执行批量下载和获取下载进度
 	DownloadDocuments([]*DocumentSource) error
 }

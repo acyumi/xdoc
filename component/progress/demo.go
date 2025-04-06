@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/cast"
 
 	"github.com/acyumi/xdoc/component/app"
-	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 )
 
@@ -32,16 +31,16 @@ type TestClient struct {
 	p IProgram
 }
 
-func NewTestClient(args *argument.Args) cloud.Client {
+func NewTestClient() cloud.Client[any] {
 	// 创建模型
 	testClient := &TestClient{p: NewProgram(nil)}
-	testClient.SetArgs(args)
+	testClient.SetArgs(nil)
 	return testClient
 }
 
-func (c *TestClient) SetArgs(_ *argument.Args) {}
+func (c *TestClient) SetArgs(_ any) {}
 
-func (c *TestClient) GetArgs() *argument.Args {
+func (c *TestClient) GetArgs() any {
 	return nil
 }
 
@@ -49,7 +48,10 @@ func (c *TestClient) Validate() error {
 	return nil
 }
 
-func (c *TestClient) DownloadDocuments([]*cloud.DocumentSource) error {
+func (c *TestClient) DownloadDocuments(dss []*cloud.DocumentSource) error {
+	if len(dss) == 0 {
+		return oops.New("文档源为空")
+	}
 	return testProgramAddUpdate(c.p)
 }
 

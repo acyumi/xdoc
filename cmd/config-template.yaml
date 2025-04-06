@@ -1,0 +1,74 @@
+# Copyright 2025 acyumi <417064257@qq.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# -------------------------------------------------------------
+# 程序参数。
+# -----------------
+# 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值
+# 环境变量的格式：全大写  XDOC_开头  .和-替换为_
+# 举例：export.feishu.app-id 对应 XDOC_EXPORT_FEISHU_APP_ID
+# -------------------------------------------------------------
+
+# 是否在程序跑完后自动退出。【默认值：false】
+# 对应环境变量   XDOC_VERBOSE
+# 对应命令行参数 -V 或 --verbose
+verbose: false
+# 是否在程序目录生成config.yaml。【默认值：false】
+# 如果为true，则生成config.yaml后立即退出
+# 对应环境变量   XDOC_GENERATE_CONFIG
+# 对应命令行参数 -g 或 --generate-config
+generate-config: false
+# 是否在程序跑完后自动退出。【默认值：false】
+# 对应环境变量   XDOC_QUIT_AUTOMATICALLY
+# 对应命令行参数 -q 或 --quit-automatically
+quit-automatically: false
+
+# 导出相关的参数。
+# 仅在export子命令下生效，如 ./xdoc export --app-id "cli_xxx" ...
+export:
+  # 是否只列出云文档信息不进行导出下载。【默认值：false】
+  # 对应环境变量   XDOC_EXPORT_LIST_ONLY
+  # 对应命令行参数 -l 或 --list-only
+  list-only: false
+  # export子命令默认功能为"飞书导出"。
+  feishu:
+    # 是否启用飞书导出功能。【默认值：false】
+    # 请自行修改为true，否则需要指定到export更下级命令才能执行
+    # 对应环境变量   XDOC_EXPORT_FEISHU_ENABLED
+    # 对应命令行参数 --feishu-enabled
+    enabled: false
+    # 飞书应用ID。【功能内必填】
+    # 对应环境变量   XDOC_EXPORT_FEISHU_APP_ID
+    # 对应命令行参数 --app-id
+    app-id: "cli_xxx"
+    # 飞书应用密钥。【功能内必填】
+    # 对应环境变量   XDOC_EXPORT_FEISHU_APP_SECRET
+    # 对应命令行参数 --app-secret
+    app-secret: "xxx"
+    # 文档地址。【功能内必填】
+    # 对应环境变量   XDOC_EXPORT_FEISHU_URLS
+    # 对应命令行参数 --urls
+    urls:
+      - "https://xxx.feishu.cn/wiki/xxx"
+    # 文档存放目录(本地)。【功能内必填】
+    # 对应环境变量   XDOC_EXPORT_FEISHU_DIR
+    # 对应命令行参数 --dir
+    dir: "/xxx/docs"
+    file:
+      # 文档扩展名映射，用于指定文档下载后的文件类型。
+      # 对应环境变量   XDOC_EXPORT_FEISHU_FILE_EXTENSIONS
+      # 对应命令行参数 --ext
+      extensions:
+        docx: "docx" # docx 或 pdf，默认为 docx
+        doc: "docx"  # docx 或 pdf，默认为 docx

@@ -21,6 +21,10 @@ filename: '{{ replace (.InterfaceName | snakecase) "i_" "i" -1 }}_mock_test.go'
 with-expecter: true
 issue-845-fix: true
 packages:
+  github.com/acyumi/xdoc/cmd:
+    config:
+      all: true
+      recursive: true
   github.com/acyumi/xdoc/component:
     config:
       all: true

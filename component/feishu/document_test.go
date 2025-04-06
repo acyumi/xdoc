@@ -23,7 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xlab/treeprint"
 
-	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/constant"
 )
 
@@ -89,7 +88,7 @@ func TestSetFileExtension(t *testing.T) {
 	tests := []struct {
 		name         string
 		documentNode DocumentNode
-		args         argument.Args
+		args         Args
 		expectedType constant.DocType
 		expectedExt  constant.FileExt
 	}{
@@ -100,7 +99,7 @@ func TestSetFileExtension(t *testing.T) {
 					Type: constant.DocTypeDocx,
 				},
 			},
-			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			args:         Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: constant.DocTypeDocx,
 			expectedExt:  constant.FileExtDocx,
 		},
@@ -111,7 +110,7 @@ func TestSetFileExtension(t *testing.T) {
 					Type: constant.DocTypeSheet,
 				},
 			},
-			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			args:         Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: constant.DocTypeSheet,
 			expectedExt:  constant.FileExtXlsx,
 		},
@@ -122,7 +121,7 @@ func TestSetFileExtension(t *testing.T) {
 					Type: "unknown",
 				},
 			},
-			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			args:         Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: "unknown",
 			expectedExt:  "unknown",
 		},
@@ -134,7 +133,7 @@ func TestSetFileExtension(t *testing.T) {
 					Name: "example.xlsx",
 				},
 			},
-			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			args:         Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: constant.DocTypeSheet,
 			expectedExt:  constant.FileExtXlsx,
 		},
@@ -146,7 +145,7 @@ func TestSetFileExtension(t *testing.T) {
 					Name: "example.docx",
 				},
 			},
-			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			args:         Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: constant.DocTypeDocx,
 			expectedExt:  constant.FileExtDocx,
 		},
@@ -158,7 +157,7 @@ func TestSetFileExtension(t *testing.T) {
 					Name: "example.pdf",
 				},
 			},
-			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			args:         Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: constant.DocTypePDF,
 			expectedExt:  "pdf",
 		},
@@ -170,7 +169,7 @@ func TestSetFileExtension(t *testing.T) {
 					Name: "example",
 				},
 			},
-			args:         argument.Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
+			args:         Args{FileExtensions: map[constant.DocType]constant.FileExt{}},
 			expectedType: constant.DocTypeFile,
 			expectedExt:  "file",
 		},

@@ -30,7 +30,6 @@ import (
 	"github.com/xlab/treeprint"
 
 	"github.com/acyumi/xdoc/component/app"
-	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/constant"
 	"github.com/acyumi/xdoc/component/progress"
@@ -38,22 +37,22 @@ import (
 
 type ClientImpl struct {
 	*lark.Client
-	Args        *argument.Args
-	TaskCreator func(args *argument.Args, docs []*DocumentNode) cloud.Task
+	Args        *Args
+	TaskCreator func(args *Args, docs []*DocumentNode) cloud.Task
 }
 
-func NewClient(args *argument.Args) cloud.Client {
+func NewClient(args *Args) cloud.Client[*Args] {
 	var c ClientImpl
 	c.SetArgs(args)
 	return &c
 }
 
-func (c *ClientImpl) SetArgs(args *argument.Args) {
+func (c *ClientImpl) SetArgs(args *Args) {
 	c.Client = lark.NewClient(args.AppID, args.AppSecret)
 	c.Args = args
 }
 
-func (c *ClientImpl) GetArgs() *argument.Args {
+func (c *ClientImpl) GetArgs() *Args {
 	return c.Args
 }
 

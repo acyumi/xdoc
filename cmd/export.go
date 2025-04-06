@@ -15,214 +15,108 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
-	"io/fs"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/samber/lo"
 	"github.com/samber/oops"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
-	"github.com/acyumi/xdoc/component/cloud"
-	"github.com/acyumi/xdoc/component/feishu"
-	"github.com/acyumi/xdoc/component/progress"
 )
 
 const (
-	flagNameConfig            = "config"             //    --config
-	flagNameVerbose           = "verbose"            // -V --verbose
-	flagNameAppID             = "app-id"             //    --app
-	flagNameAppSecret         = "app-secret"         //    --app
-	flagNameURLs              = "urls"               //    --urls
-	flagNameDir               = "dir"                //    --dir
-	flagNameExt               = "ext"                //    --ext
-	flagNameFileExtensions    = "file.extensions"    //
-	flagNameListOnly          = "list-only"          // -f --list-only
-	flagNameQuitAutomatically = "quit-automatically" // -q --quit-automatically
+	commandNameExport = "export" //
+
+	flagNameListOnly = "list-only" // -f --list-only
+
+	viperKeyFeishuEnabled = "export.feishu.enabled" //
 )
 
-var export = exportCommand(vip, args)
+type exportCommand struct {
+	*cobra.Command
+	vip        *viper.Viper
+	args       *argument.Args
+	subs       []command
+	subCommand string
+}
 
-func exportCommand(vip *viper.Viper, args *argument.Args) *cobra.Command {
-	export := &cobra.Command{
-		Use:   "export",
-		Short: "飞书云文档批量导出器",
-		Long:  "这是飞书云文档批量导出、下载到本地的程序",
+func (c *exportCommand) init(vip *viper.Viper, args *argument.Args) {
+	c.Command = &cobra.Command{
+		Use:   commandNameExport,
+		Short: "云文档批量导出器",
+		Long:  "这是云文档批量导出、下载到本地的程序",
+		Example: `【使用默认config.yaml(需要设置相关enabled值为true)】
+./xdoc export
+【指定配置文件】
+./xdoc export --config ./config.yaml
+./xdoc export --config ./local.yaml
+【指向下级命令】
+./xdoc export feishu --help
+./xdoc export feishu --config ./local.yaml
+./xdoc export feishu --app-id cli_xxx --app-secret yyy --dir /tmp/docs --urls https://xxx.feishu.cn/wiki/123456789`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			err := loadConfig(cmd, vip, args)
-			if err != nil {
-				return oops.Wrap(err)
-			}
-			return runE(args)
+			return c.exec()
 		},
 	}
-	err := setFlags(export, vip, args)
-	if err != nil {
-		panic(err)
-	}
-	return export
+	c.vip = vip
+	c.args = args
 }
 
-func init() {
-	// 加到根命令中
-	root.AddCommand(export)
-}
-
-func setFlags(cmd *cobra.Command, vip *viper.Viper, args *argument.Args) (err error) {
-	// 添加 --config 参数
-	cmd.PersistentFlags().StringVar(&args.ConfigFile, flagNameConfig, "", "指定配置文件(默认使用./config.yaml), 配置文件的参数会被命令行参数覆盖")
-	// 添加命令行参数
-	flags := cmd.Flags()
-	flags.BoolP(flagNameVerbose, "V", false, "是否显示详细日志")
-	flags.String(flagNameAppID, "", "飞书应用ID")
-	flags.String(flagNameAppSecret, "", "飞书应用密钥")
-	flags.StringSlice(flagNameURLs, []string{}, "文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz")
-	flags.String(flagNameDir, "", "文档存放目录(本地)")
-	flags.StringToString(flagNameExt, map[string]string{}, "文档扩展名映射, 用于指定文档下载后的文件类型, 对应配置文件file.extensions(如 docx=docx,doc=pdf)")
-	flags.BoolP(flagNameListOnly, "l", false, "是否只列出云文档信息不进行导出下载")
-	flags.BoolP(flagNameQuitAutomatically, "q", false, "是否在下载完成后自动退出程序")
-
-	flags.VisitAll(func(flag *pflag.Flag) {
-		if err != nil {
-			return
+func (c *exportCommand) bind() (err error) {
+	persistentFlags := c.Command.PersistentFlags()
+	persistentFlags.BoolP(flagNameListOnly, "l", false, "是否只列出云文档信息不进行导出下载")
+	_ = c.vip.BindPFlag(commandNameExport+"."+flagNameListOnly, persistentFlags.Lookup(flagNameListOnly))
+	osArgs := os.Args[1:]
+	if len(osArgs) >= 2 {
+		second := osArgs[1]
+		if !strings.HasPrefix(second, "-") {
+			c.subCommand = second
+			// 如果是指定了children()中存在子命令，则不会执行export的runE函数，那就可以跳过了
+			return nil
 		}
-		switch flag.Name {
-		case flagNameExt:
-			// 不绑定，因为要实现 --ext 参数局部覆盖fileExtensions中的key的效果
-			return
-		default:
-			err = vip.BindPFlag(flag.Name, flag)
-		}
-	})
-	return oops.Wrapf(err, "绑定命令行参数到Viper失败")
-}
-
-func loadConfig(cmd *cobra.Command, vip *viper.Viper, args *argument.Args) (err error) {
-	err = loadConfigFromFile(vip, args)
-	if err != nil {
-		var oe oops.OopsError
-		if ok := errors.As(err, &oe); !ok || oe.Code() != "continue" {
-			return oops.Wrapf(err, "加载配置文件失败")
-		}
-		fmt.Println(oe.Error())
 	}
-	// 从 Viper 中读取配置
-	args.Verbose = vip.GetBool(flagNameVerbose)
-	args.AppID = vip.GetString(flagNameAppID)
-	args.AppSecret = vip.GetString(flagNameAppSecret)
-	args.DocURLs = vip.GetStringSlice(flagNameURLs)
-	args.SaveDir = vip.GetString(flagNameDir)
-	args.SaveDir = filepath.Clean(args.SaveDir)
-	args.SetFileExtensions(vip.GetStringMapString(flagNameFileExtensions))
-	overrides, err := cmd.Flags().GetStringToString(flagNameExt)
-	if err != nil {
-		return oops.Wrap(err)
-	}
-	args.SetFileExtensions(overrides)
-	args.ListOnly = vip.GetBool(flagNameListOnly)
-	args.QuitAutomatically = vip.GetBool(flagNameQuitAutomatically)
-	// 去重
-	args.DocURLs = lo.Uniq[string](args.DocURLs)
+	// 执行到这里就代表未指定export下的子命令，后续有需求可添加相应逻辑供runE函数使用
+	// 注意：遵循接口的设计，这里不要从c.vip中读取配置来使用，否则可有读取不到配置文件中的值
 	return nil
 }
 
-func runE(args *argument.Args) (err error) {
-	args.StartTime = time.Now()
-	defer func() {
-		duration := time.Since(args.StartTime)
-		fmt.Println("----------------------------------------------")
-		fmt.Printf("完成飞书云文档操作, 总耗时: %s\n", duration.String())
-		if err != nil {
-			return
-		}
-		err, _ = recover().(error)
-	}()
-	fmt.Println("----------------------------------------------")
-	fmt.Printf(" ConfigFile: %s\n", args.ConfigFile)
-	fmt.Printf(" Verbose: %v\n", args.Verbose)
-	fmt.Printf(" AppID: %s\n", args.Desensitize(args.AppID))
-	fmt.Printf(" AppSecret: %s\n", args.Desensitize(args.AppSecret))
-	fmt.Printf(" DocURLs: %v\n", func() string {
-		ds := args.DesensitizeSlice(args.DocURLs...)
-		urls, _ := app.MarshalIndent(ds, "", "  ")
-		return strings.ReplaceAll(string(urls), "\n", "\n ")
-	}())
-	fmt.Printf(" SaveDir: %s\n", args.SaveDir)
-	fmt.Printf(" FileExtensions: %v\n", args.FileExtensions)
-	fmt.Printf(" ListOnly: %v\n", args.ListOnly)
-	fmt.Printf(" QuitAutomatically: %v\n", args.QuitAutomatically)
-	fmt.Println("----------------------------------------------")
-	if err = args.Validate(); err != nil {
-		return oops.Wrap(err)
-	}
-	// 先通过文档地址获取文件类型和token
-	var gotHost string
-	var docSources []*cloud.DocumentSource
-	for _, docURL := range args.DocURLs {
-		host, typ, token, err := analysisURL(docURL)
-		if err != nil {
-			return oops.Wrap(err)
-		}
-		if gotHost == "" {
-			gotHost = host
-		} else if gotHost != host {
-			return oops.Errorf("文档地址不匹配, 请确保所有文档地址都是同一域名")
-		}
-		docSources = append(docSources, &cloud.DocumentSource{Type: typ, Token: token})
-	}
-	// 创建 Client
-	client, err := newCloudClient(args, gotHost)
-	if err != nil {
-		return oops.Wrap(err)
-	}
-	// 下载文档
-	return client.DownloadDocuments(docSources)
+func (c *exportCommand) get() *cobra.Command {
+	return c.Command
 }
 
-func loadConfigFromFile(vip *viper.Viper, args *argument.Args) error {
-	// 如果指定了 --config 参数，则使用指定的配置文件
-	if args.ConfigFile != "" {
-		vip.SetConfigFile(args.ConfigFile)
-	} else {
-		// 默认从程序所在目录读取配置文件
-		exePath, err := os.Executable()
-		if err != nil {
-			return oops.Wrapf(err, "获取程序所在目录失败")
+func (c *exportCommand) children() []command {
+	// 这里children()会被调用多次，所以需要缓存起来
+	if len(c.subs) == 0 {
+		c.subs = []command{
+			&exportFeishuCommand{},
 		}
-		exeDir := filepath.Dir(exePath)
-		vip.AddConfigPath(exeDir)         // 添加程序所在目录为配置文件搜索路径
-		vip.SetConfigName(flagNameConfig) // 配置文件名称（不带扩展名）
-		vip.SetConfigType("yaml")         // 配置文件类型
-		args.ConfigFile = filepath.Join(exeDir, flagNameConfig+".yaml")
 	}
-	// 读取配置文件
-	if err := vip.ReadInConfig(); err != nil {
-		var cfnfe viper.ConfigFileNotFoundError
-		if ok := errors.As(err, &cfnfe); ok {
-			// 配置文件不存在，忽略错误
-			return oops.Code("continue").New("未找到配置文件, 将使用命令行参数，尝试使用命令行参数继续执行")
-		}
-		pathErr := &fs.PathError{}
-		if ok := errors.As(err, &pathErr); ok {
-			return oops.Code("continue").New("请检查配置文件权限，或者指定其他位置的配置文件，尝试使用命令行参数继续执行")
-		}
-		// 其他错误
-		return oops.Wrap(err)
+	return c.subs
+}
+
+func (c *exportCommand) exec() error {
+	// export命令没有定义对应的flag参数，仅支持从配置文件或环境变量中取值
+	// 从配置文件或环境变量中取值判断是否启用飞书导出功能
+	if c.subCommand == "" && c.vip.GetBool(viperKeyFeishuEnabled) {
+		// TODO 以后加入其他平台的云文档导出再继续判断，计划只同时支持打开一种开关
+		c.subCommand = commandNameFeishu
 	}
-	return nil
+	if c.subCommand == "" {
+		return pflag.ErrHelp
+	}
+	for _, child := range c.children() {
+		if child.get().Name() == c.subCommand {
+			return child.exec()
+		}
+	}
+	return oops.Code("InvalidArgument").Errorf("未找到export下的子命令: %s\n", c.subCommand)
 }
 
 func analysisURL(docURL string) (host, typ, token string, err error) {
-	// 文件夹 folder_token： https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0
+	// 文件夹 folder_token：https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0
 	// 文件 file_token：https://sample.feishu.cn/file/ndqUw1kpjnGNNaegyqDyoQDCLx1
 	// 文档 doc_token：https://sample.feishu.cn/docs/2olt0Ts4Mds7j7iqzdwrqEUnO7q
 	// 新版文档 document_id：https://sample.feishu.cn/docx/UXEAd6cRUoj5pexJZr0cdwaFnpd
@@ -260,18 +154,4 @@ func analysisURL(docURL string) (host, typ, token string, err error) {
 	typ = strings.Join(split[0:len(split)-1], "/")
 	token = split[len(split)-1]
 	return host, typ, token, nil
-}
-
-func newCloudClient(args *argument.Args, host string) (cloud.Client, error) {
-	switch {
-	// TODO 可通过配置覆盖
-	case strings.HasSuffix(host, "feishu.cn"):
-		// 创建 飞书客户端
-		return feishu.NewClient(args), nil
-	case host == "progress.test":
-		// 创建 进度条测试客户端
-		return progress.NewTestClient(args), nil
-	default:
-		return nil, oops.Errorf("不支持的文档来源域名: %s", host)
-	}
 }

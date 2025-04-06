@@ -15,6 +15,7 @@
 package app
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -26,4 +27,13 @@ func TestSleep(t *testing.T) {
 	Sleep(time.Millisecond)
 	// time.Since也耗时，放宽点到5毫秒
 	require.Less(t, time.Since(start), 5*time.Millisecond)
+}
+
+func TestPrint(t *testing.T) {
+	vip := NewViper()
+	require.NotNil(t, vip)
+
+	Fprintln(os.Stdout, "hello")
+	Fprint(os.Stdout, "hello")
+	Fprintf(os.Stdout, "hello")
 }

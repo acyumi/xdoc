@@ -18,18 +18,16 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/h2non/gock"
 	"github.com/samber/oops"
-	"github.com/spf13/viper"
+	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
-	"github.com/acyumi/xdoc/component/constant"
-	"github.com/acyumi/xdoc/component/feishu"
-	"github.com/acyumi/xdoc/component/progress"
 )
 
 // 注册测试套件。
@@ -39,183 +37,189 @@ func TestExporterSuite(t *testing.T) {
 
 type ExporterTestSuite struct {
 	suite.Suite
-	TempDir string
+	cachedOsArgs []string
 }
 
-func (s *ExporterTestSuite) SetupTest() {
-	s.TempDir = s.T().TempDir()
+func (s *ExporterTestSuite) SetupSuite() {
+	app.Fs = &afero.Afero{Fs: afero.NewMemMapFs()}
+	s.cachedOsArgs = os.Args
 }
+
+func (s *ExporterTestSuite) SetupTest() {}
 
 func (s *ExporterTestSuite) TearDownTest() {
 
 }
 
-func (s *ExporterTestSuite) TestExecute() {
-	oc := export
-	defer func() {
-		export = oc
-	}()
+func (s *ExporterTestSuite) Test_exportCommand_Execute() {
 	tests := []struct {
 		name           string
 		configFile     string
 		configContent  []byte
 		args           []string
+		setupMock      func(name string, cmd *exportCommand, args []string)
+		teardownMock   func(name string, cmd *exportCommand, args []string)
 		wantConfigFile string
-		wantAppID      string
-		wantAppSecret  string
-		wantDocURLs    []string
-		wantSaveDir    string
 		wantError      string
 		wantCode       string
 	}{
 		{
-			name:          "纯命令参数执行",
+			name:          "纯命令参数执行，不支持--app-id",
 			configFile:    "",
 			configContent: nil,
 			args: []string{
+				"--config", "config.yaml",
 				"--app-id", "xx",
-				"--app-secret", "yy",
-				"--urls", "https://invalid.cn/docs/xxx",
-				"--dir", "/tmp",
-				"--list-only", "true",
-				"--quit-automatically", "true",
-				"--ext", "docx=docx,doc=docx",
 			},
 			wantConfigFile: "",
-			wantAppID:      "xx",
-			wantAppSecret:  "yy",
-			wantDocURLs:    []string{"https://invalid.cn/docs/xxx"},
-			wantSaveDir:    filepath.Clean("/tmp"),
-			wantError:      "不支持的文档来源域名: invalid.cn",
+			wantError:      "unknown flag: --app-id",
 		},
 		{
-			name:       "指定有效配置文件",
-			configFile: filepath.Join(s.TempDir, "test.yaml"),
+			name:          "绑定匹配子命令feishu",
+			configFile:    "",
+			configContent: nil,
+			args:          []string{"feishu"},
+			setupMock: func(name string, cmd *exportCommand, args []string) {
+				os.Args = []string{"xdoc", "export", "feishu"}
+				cmd.subs = []command{
+					NewMockCommand(s.T()),
+				}
+				children := cmd.children()
+				firstChild := children[0]
+				mc := firstChild.(*MockCommand)
+				mc.EXPECT().get().Return(&cobra.Command{Use: commandNameFeishu}).Once()
+				mc.EXPECT().exec().Return(nil).Once()
+			},
+			teardownMock: func(name string, cmd *exportCommand, args []string) {
+				os.Args = s.cachedOsArgs
+			},
+			wantConfigFile: "",
+			wantError:      "",
+		},
+		{
+			name:          "执行测试子命令xxx",
+			configFile:    "",
+			configContent: nil,
+			args:          []string{"xxx"},
+			setupMock: func(name string, cmd *exportCommand, args []string) {
+				os.Args = []string{"xdoc", "export", "xxx"}
+				cmd.subs = []command{
+					NewMockCommand(s.T()),
+				}
+				children := cmd.children()
+				firstChild := children[0]
+				mc := firstChild.(*MockCommand)
+				mc.EXPECT().get().Return(&cobra.Command{Use: "xxx"}).Once()
+				mc.EXPECT().exec().Return(errors.New("执行了xxx")).Once()
+			},
+			teardownMock: func(name string, cmd *exportCommand, args []string) {
+				os.Args = s.cachedOsArgs
+			},
+			wantConfigFile: "",
+			wantError:      "执行了xxx",
+		},
+		{
+			name:          "测试未找到子命令xxx",
+			configFile:    "",
+			configContent: nil,
+			args:          []string{"xxx"},
+			setupMock: func(name string, cmd *exportCommand, args []string) {
+				os.Args = []string{"xdoc", "export", "xxx"}
+				cmd.subs = []command{
+					NewMockCommand(s.T()),
+				}
+				children := cmd.children()
+				firstChild := children[0]
+				mc := firstChild.(*MockCommand)
+				mc.EXPECT().get().Return(&cobra.Command{Use: "yyy"}).Once()
+			},
+			teardownMock: func(name string, cmd *exportCommand, args []string) {
+				os.Args = s.cachedOsArgs
+			},
+			wantConfigFile: "",
+			wantError:      "未找到export下的子命令: xxx\n",
+			wantCode:       "InvalidArgument",
+		},
+		{
+			name:       "指定有效配置文件，打开开关",
+			configFile: "/tmp/test.yaml",
 			configContent: []byte(`
-app-id: "xx"
-app-secret: "yy"
-urls: ["https://invalid.cn/docs/xxx"]
-dir: "/tmp"
-list-only: true
+verbose: true
+generate-config: false
 quit-automatically: true
-file:
-  extensions:
-    docx: "docx"
-    doc: "docx"
+export:
+  list-only: true
+  feishu:
+    enabled: true
 `),
-			args:           []string{"--config", filepath.Join(s.TempDir, "test.yaml")},
-			wantConfigFile: filepath.Join(s.TempDir, "test.yaml"),
-			wantAppID:      "xx",
-			wantAppSecret:  "yy",
-			wantDocURLs:    []string{"https://invalid.cn/docs/xxx"},
-			wantSaveDir:    filepath.Clean("/tmp"),
-			wantError:      "不支持的文档来源域名: invalid.cn",
+			args: []string{"--config", "/tmp/test.yaml"},
+			setupMock: func(name string, cmd *exportCommand, args []string) {
+				cmd.subs = []command{
+					NewMockCommand(s.T()),
+				}
+				children := cmd.children()
+				firstChild := children[0]
+				mc := firstChild.(*MockCommand)
+				mc.EXPECT().get().Return(&cobra.Command{Use: commandNameFeishu}).Once()
+				mc.EXPECT().exec().Return(errors.New("执行了feishu")).Once()
+			},
+			wantConfigFile: "/tmp/test.yaml",
+			wantError:      "执行了feishu",
+		},
+		{
+			name:       "指定有效配置文件，关闭开关",
+			configFile: "/tmp/test.yaml",
+			configContent: []byte(`
+verbose: true
+generate-config: false
+quit-automatically: true
+export:
+  list-only: true
+  feishu:
+    enabled: false
+`),
+			args: []string{"--config", "/tmp/test.yaml"},
+			setupMock: func(name string, cmd *exportCommand, args []string) {
+			},
+			wantConfigFile: "/tmp/test.yaml",
+			wantError:      "",
 		},
 		{
 			name:       "默认配置文件",
 			configFile: "",
 			configContent: []byte(`
-app-id: "xx"
-app-secret: "yy"
-urls: ["https://invalid.cn/docs/xxx"]
-dir: "/tmp"
-list-only: true
+verbose: true
+generate-config: false
 quit-automatically: true
-file:
-  extensions:
-    docx: "docx"
-    doc: "docx"
+export:
+  list-only: true
+  feishu:
+    enabled: true
 `),
+			setupMock: func(name string, cmd *exportCommand, args []string) {
+				cmd.subs = []command{
+					NewMockCommand(s.T()),
+				}
+				children := cmd.children()
+				firstChild := children[0]
+				mc := firstChild.(*MockCommand)
+				mc.EXPECT().get().Return(&cobra.Command{Use: commandNameFeishu}).Once()
+				mc.EXPECT().exec().Return(errors.New("执行了feishu")).Once()
+			},
 			wantConfigFile: func() string {
-				exePath, err := os.Executable()
+				exePath, err := app.Executable()
 				s.Require().NoError(err, "获取程序所在目录失败")
 				exeDir := filepath.Dir(exePath)
 				return filepath.Join(exeDir, flagNameConfig+".yaml")
 			}(),
-			wantAppID:     "xx",
-			wantAppSecret: "yy",
-			wantDocURLs:   []string{"https://invalid.cn/docs/xxx"},
-			wantSaveDir:   filepath.Clean("/tmp"),
-			wantError:     "不支持的文档来源域名: invalid.cn",
-		},
-		{
-			name:       "不支持的schema",
-			configFile: "",
-			configContent: []byte(`
-app-id: "xx"
-app-secret: "yy"
-urls: ["feishu://invalid.cn/docs/xxx"]
-dir: "/tmp"
-list-only: true
-quit-automatically: true
-file:
-  extensions:
-    docx: "docx"
-    doc: "docx"
-`),
-			wantConfigFile: func() string {
-				exePath, err := os.Executable()
-				s.Require().NoError(err, "获取程序所在目录失败")
-				exeDir := filepath.Dir(exePath)
-				return filepath.Join(exeDir, flagNameConfig+".yaml")
-			}(),
-			wantAppID:     "xx",
-			wantAppSecret: "yy",
-			wantDocURLs:   []string{"feishu://invalid.cn/docs/xxx"},
-			wantSaveDir:   filepath.Clean("/tmp"),
-			wantError:     "url地址必须是http://或https://开头",
-			wantCode:      "BadRequest",
-		},
-		{
-			name:       "不支持的ext配置",
-			configFile: "",
-			configContent: []byte(`
-app-id: "xx"
-app-secret: "yy"
-urls: ["https://invalid.cn/docs/xxx"]
-dir: "/tmp"
-list-only: true
-quit-automatically: true
-file:
-  extensions: 
-    docx: "docx"
-    doc: "docx"
-`),
-			args: []string{"--ext", "xxx"},
-			wantConfigFile: func() string {
-				exePath, err := os.Executable()
-				s.Require().NoError(err, "获取程序所在目录失败")
-				exeDir := filepath.Dir(exePath)
-				return filepath.Join(exeDir, flagNameConfig+".yaml")
-			}(),
-			wantAppID:     "",
-			wantAppSecret: "",
-			wantDocURLs:   nil,
-			wantSaveDir:   "",
-			wantError:     "invalid argument \"xxx\" for \"--ext\" flag: xxx must be formatted as key=value",
-			wantCode:      "",
-		},
-		{
-			name:           "配置文件不存在",
-			configFile:     "nonexistent.yaml",
-			wantConfigFile: "nonexistent.yaml",
-			wantAppID:      "",
-			wantAppSecret:  "",
-			wantDocURLs:    []string{},
-			wantSaveDir:    ".",
-			wantError:      "AppID: app-id是必需参数; AppSecret: app-secret是必需参数; DocURLs: urls是必需参数.",
-			wantCode:       "InvalidArgument",
+			wantError: "执行了feishu",
 		},
 		{
 			name:           "配置文件类型不对",
-			configFile:     filepath.Join(s.TempDir, "ttt.exe"),
+			configFile:     "/tmp/ttt.exe",
 			configContent:  []byte(`xxx`),
-			args:           []string{"--config", filepath.Join(s.TempDir, "ttt.exe")},
-			wantConfigFile: filepath.Join(s.TempDir, "ttt.exe"),
-			wantAppID:      "",
-			wantAppSecret:  "",
-			wantDocURLs:    nil,
-			wantSaveDir:    "",
+			args:           []string{"--config", "/tmp/ttt.exe"},
+			wantConfigFile: "/tmp/ttt.exe",
 			wantError:      "加载配置文件失败: Unsupported Config Type \"exe\"",
 			wantCode:       "",
 		},
@@ -225,7 +229,7 @@ file:
 		s.Run(tt.name, func() {
 			tempFile := tt.configFile
 			if tempFile == "" && tt.configContent != nil {
-				exePath, err := os.Executable()
+				exePath, err := app.Executable()
 				s.Require().NoError(err, "获取程序所在目录失败")
 				exeDir := filepath.Dir(exePath)
 				tempFile = filepath.Join(exeDir, flagNameConfig+".yaml")
@@ -234,11 +238,22 @@ file:
 				err := app.Fs.WriteFile(tempFile, tt.configContent, 0644)
 				s.Require().NoError(err, "创建测试配置文件失败")
 			}
-			vip := viper.New()
+			vip := app.NewViper()
 			args := &argument.Args{}
-			root = rootCommand()
-			export = exportCommand(vip, args)
-			root.AddCommand(export)
+			root := &XdocCommand{}
+			export := &exportCommand{}
+			if tt.setupMock != nil {
+				tt.setupMock(tt.name, export, tt.args)
+			}
+			for _, cmd := range []command{root, export} {
+				cmd.init(vip, args)
+				err := cmd.bind()
+				s.Require().NoError(err, tt.name)
+				c := cmd.get()
+				if root.get() != c {
+					root.AddCommand(c)
+				}
+			}
 			// 这里不能传 nil，因为这会让 cobra 取了 IDE 的参数影响单测，如 Error: unknown shorthand flag: 't' in -testify.m
 			if tt.args == nil {
 				tt.args = []string{}
@@ -247,6 +262,9 @@ file:
 			tt.args = append([]string{"export"}, tt.args...)
 			root.SetArgs(tt.args)
 			err := export.Execute()
+			if tt.teardownMock != nil {
+				tt.teardownMock(tt.name, export, tt.args)
+			}
 			if err != nil || tt.wantError != "" {
 				s.Require().Error(err, tt.name)
 				s.Require().EqualError(err, tt.wantError, tt.name)
@@ -258,10 +276,6 @@ file:
 				s.Require().NoError(err, tt.name)
 			}
 			s.Equal(tt.wantConfigFile, tempFile, tt.name)
-			s.Equal(tt.wantAppID, args.AppID, tt.name)
-			s.Equal(tt.wantAppSecret, args.AppSecret, tt.name)
-			s.Equal(tt.wantDocURLs, args.DocURLs, tt.name)
-			s.Equal(tt.wantSaveDir, args.SaveDir, tt.name)
 			yes, err := app.Fs.Exists(tempFile)
 			s.Require().NoError(err, tt.name)
 			if yes {
@@ -272,93 +286,91 @@ file:
 	}
 }
 
-func (s *ExporterTestSuite) Test_runE() {
+func (s *ExporterTestSuite) Test_exportCommand_exec() {
 	tests := []struct {
 		name         string
-		args         *argument.Args
-		setupMock    func(name string)
-		teardownMock func(name string)
+		cmd          *exportCommand
+		setupMock    func(name string, cmd *exportCommand)
+		teardownMock func(name string, cmd *exportCommand)
 		wantError    string
 		wantCode     string
 	}{
 		{
-			name: "指定有效配置文件",
-			args: &argument.Args{
-				AppID:             "xx",
-				AppSecret:         "yy",
-				DocURLs:           []string{"https://invalid.cn/docs/xxx"},
-				SaveDir:           "/tmp",
-				ListOnly:          true,
-				QuitAutomatically: true,
-				FileExtensions: map[constant.DocType]constant.FileExt{
-					"docx": "docx",
-					"doc":  "docx",
-				},
+			name: "subCommand为空",
+			cmd: &exportCommand{
+				vip:        app.NewViper(),
+				subCommand: "",
 			},
-			setupMock:    func(name string) {},
-			teardownMock: func(name string) {},
-			wantError:    "不支持的文档来源域名: invalid.cn",
+			setupMock:    func(name string, cmd *exportCommand) {},
+			teardownMock: func(name string, cmd *exportCommand) {},
+			wantError:    "pflag: help requested",
 			wantCode:     "",
 		},
 		{
-			name: "文档地址不是同一域名",
-			args: &argument.Args{
-				AppID:     "xx",
-				AppSecret: "yy",
-				DocURLs: []string{
-					"https://invalid.cn/docs/xxx",
-					"https://xxxyyy.feishu.cn/docs/xxx",
-				},
-				SaveDir:           "/tmp",
-				ListOnly:          true,
-				QuitAutomatically: true,
-				FileExtensions: map[constant.DocType]constant.FileExt{
-					"docx": "docx",
-					"doc":  "docx",
+			name: "未找到export下的子命令",
+			cmd: &exportCommand{
+				vip:        app.NewViper(),
+				subCommand: "xxx",
+			},
+			setupMock: func(name string, cmd *exportCommand) {
+				children := cmd.children()
+				firstChild := children[0]
+				firstChild.init(nil, nil)
+			},
+			teardownMock: func(name string, cmd *exportCommand) {},
+			wantError:    "未找到export下的子命令: xxx\n",
+			wantCode:     "InvalidArgument",
+		},
+		{
+			name: "执行export下的子命令",
+			cmd: &exportCommand{
+				subCommand: "xxx",
+				subs: []command{
+					NewMockCommand(s.T()),
 				},
 			},
-			setupMock:    func(name string) {},
-			teardownMock: func(name string) {},
-			wantError:    "文档地址不匹配, 请确保所有文档地址都是同一域名",
+			setupMock: func(name string, cmd *exportCommand) {
+				children := cmd.children()
+				firstChild := children[0]
+				mc := firstChild.(*MockCommand)
+				mc.EXPECT().get().Return(&cobra.Command{Use: "xxx"}).Once()
+				mc.EXPECT().exec().Return(errors.New("执行了xxx")).Once()
+			},
+			teardownMock: func(name string, cmd *exportCommand) {},
+			wantError:    "执行了xxx",
 			wantCode:     "",
 		},
 		{
-			name: "执行下载报错",
-			args: &argument.Args{
-				AppID:     "xx",
-				AppSecret: "yy",
-				DocURLs: []string{
-					"https://xxxyyy.feishu.cn/docs/xxx",
-				},
-				SaveDir:           "/tmp",
-				ListOnly:          true,
-				QuitAutomatically: true,
-				FileExtensions: map[constant.DocType]constant.FileExt{
-					"docx": "docx",
-					"doc":  "docx",
+			name: "通过环境变量指定export下的feishu子命令",
+			cmd: &exportCommand{
+				vip: app.NewViper(),
+				subs: []command{
+					NewMockCommand(s.T()),
 				},
 			},
-			setupMock: func(name string) {
-				// 模拟获取 tenant_access_token 的响应
-				gock.New("https://open.feishu.cn").
-					Post("/open-apis/auth/v3/tenant_access_token/internal").
-					Reply(500).
-					JSON(`{"code":500,"msg":"模拟请求失败"}`)
+			setupMock: func(name string, cmd *exportCommand) {
+				cmd.vip.SetEnvPrefix("XDOC")
+				cmd.vip.AutomaticEnv()
+				cmd.vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+				s.T().Setenv("XDOC_EXPORT_FEISHU_ENABLED", "true")
+				children := cmd.children()
+				firstChild := children[0]
+				mc := firstChild.(*MockCommand)
+				mc.EXPECT().get().Return(&cobra.Command{Use: commandNameFeishu}).Once()
+				mc.EXPECT().exec().Return(errors.New("执行了feishu")).Once()
 			},
-			teardownMock: func(name string) {
-				gock.Off()
-				s.True(gock.IsDone(), name)
+			teardownMock: func(name string, cmd *exportCommand) {
 			},
-			wantError: "msg:模拟请求失败,code:500",
+			wantError: "执行了feishu",
 			wantCode:  "",
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			tt.setupMock(tt.name)
-			err := runE(tt.args)
-			tt.teardownMock(tt.name)
+			tt.setupMock(tt.name, tt.cmd)
+			err := tt.cmd.exec()
+			tt.teardownMock(tt.name, tt.cmd)
 			if err != nil || tt.wantError != "" {
 				s.Require().Error(err, tt.name)
 				s.Require().EqualError(err, tt.wantError, tt.name)
@@ -367,100 +379,6 @@ func (s *ExporterTestSuite) Test_runE() {
 					s.Equal(tt.wantCode, oe.Code(), tt.name)
 				}
 			} else {
-				s.Require().NoError(err, tt.name)
-			}
-		})
-	}
-}
-
-// 测试配置文件加载。
-func (s *ExporterTestSuite) Test_loadConfigFromFile() {
-	tests := []struct {
-		name          string
-		configFile    string
-		configContent []byte
-		wantConfig    string
-		wantAppID     string
-		wantError     string
-		wantCode      string
-	}{
-		{
-			name:       "指定有效配置文件",
-			configFile: filepath.Join(s.TempDir, "test.yaml"),
-			configContent: []byte(`
-app-id: config_app
-file:
-  extensions:
-    doc: pdf
-`),
-			wantConfig: filepath.Join(s.TempDir, "test.yaml"),
-			wantAppID:  "config_app",
-		},
-		{
-			name:       "默认配置文件",
-			configFile: "",
-			configContent: []byte(`
-app-id: default_app
-`),
-			wantConfig: func() string {
-				exePath, err := os.Executable()
-				s.Require().NoError(err, "获取程序所在目录失败")
-				exeDir := filepath.Dir(exePath)
-				return filepath.Join(exeDir, flagNameConfig+".yaml")
-			}(),
-			wantAppID: "default_app",
-		},
-		{
-			name:       "配置文件不存在",
-			configFile: "nonexistent.yaml",
-			wantConfig: "nonexistent.yaml",
-			wantAppID:  "",
-			wantError:  "请检查配置文件权限，或者指定其他位置的配置文件，尝试使用命令行参数继续执行",
-			wantCode:   "continue",
-		},
-		{
-			name:          "配置文件类型不对",
-			configFile:    filepath.Join(s.TempDir, "ttt.exe"),
-			configContent: []byte(`xxx`),
-			wantConfig:    filepath.Join(s.TempDir, "ttt.exe"),
-			wantAppID:     "",
-			wantError:     "Unsupported Config Type \"exe\"",
-			wantCode:      "",
-		},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			configFile := tt.configFile
-			if tt.configFile == "" && tt.configContent != nil {
-				exePath, err := os.Executable()
-				s.Require().NoError(err, "获取程序所在目录失败")
-				exeDir := filepath.Dir(exePath)
-				configFile = filepath.Join(exeDir, flagNameConfig+".yaml")
-			}
-			if configFile != "" && tt.configContent != nil {
-				err := app.Fs.WriteFile(configFile, tt.configContent, 0644)
-				s.Require().NoError(err, "创建测试配置文件失败")
-			}
-			vip := viper.New()
-			args := &argument.Args{ConfigFile: tt.configFile}
-			err := loadConfigFromFile(vip, args)
-			if err != nil || tt.wantError != "" {
-				s.Require().Error(err, tt.name)
-				var oe oops.OopsError
-				ok := errors.As(err, &oe)
-				s.True(ok, tt.name)
-				s.Require().EqualError(err, tt.wantError, tt.name)
-				s.Equal(tt.wantCode, oe.Code(), tt.name)
-			} else {
-				s.Require().NoError(err, tt.name)
-			}
-			s.Equal(tt.wantConfig, args.ConfigFile, tt.name)
-			s.Equal(tt.wantAppID, vip.GetString(flagNameAppID), tt.name)
-			yes, err := app.Fs.Exists(args.ConfigFile)
-			s.Require().NoError(err, tt.name)
-			if yes {
-				err = app.Fs.Remove(args.ConfigFile)
 				s.Require().NoError(err, tt.name)
 			}
 		})
@@ -513,7 +431,6 @@ func (s *ExporterTestSuite) Test_analysisURL() {
 		{
 			name: "url非法2",
 			args: args{
-
 				docURL: "https://sample.feishu.cn/",
 			},
 			wantHost:  "sample.feishu.cn",
@@ -531,6 +448,17 @@ func (s *ExporterTestSuite) Test_analysisURL() {
 			wantType:  "",
 			wantToken: "",
 			wantError: "url地址的path部分至少包含两段才能解析出云文档类型和token，如:/docs/2olt0Ts4Mds7j7iqzdwrqEUnO7q",
+			wantCode:  "BadRequest",
+		},
+		{
+			name: "url非法4",
+			args: args{
+				docURL: "xxx://sample.feishu.cn/cSJe2JgtFFBwRuTKAJK6baNGUn0",
+			},
+			wantHost:  "",
+			wantType:  "",
+			wantToken: "",
+			wantError: "url地址必须是http://或https://开头",
 			wantCode:  "BadRequest",
 		},
 		{
@@ -633,56 +561,6 @@ func (s *ExporterTestSuite) Test_analysisURL() {
 			s.Equal(tt.wantHost, gotHost)
 			s.Equal(tt.wantType, gotType)
 			s.Equal(tt.wantToken, gotToken)
-		})
-	}
-}
-
-// 测试newCloudClient。
-func (s *ExporterTestSuite) Test_newCloudClient() {
-	tests := []struct {
-		name       string
-		host       string
-		args       *argument.Args
-		wantClient any
-		wantError  string
-	}{
-		{
-			name: "飞书客户端",
-			host: "sample.feishu.cn",
-			args: &argument.Args{
-				AppID:     "1111",
-				AppSecret: "2222",
-			},
-			wantClient: &feishu.ClientImpl{},
-		},
-		{
-			name: "进度条UI测试客户端",
-			host: "progress.test",
-			args: &argument.Args{
-				AppID:     "1111",
-				AppSecret: "2222",
-			},
-			wantClient: &progress.TestClient{},
-		},
-		{
-			name:      "不支持",
-			host:      "invalid.com",
-			wantError: "不支持的文档来源域名: invalid.com",
-		},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			actual, err := newCloudClient(tt.args, tt.host)
-			if tt.wantError != "" {
-				s.Require().Error(err, tt.name)
-				s.Require().EqualError(err, tt.wantError, tt.name)
-				s.Nil(actual, tt.name)
-				return
-			}
-			s.Require().NoError(err, tt.name)
-			s.NotNil(actual, tt.name)
-			s.IsType(tt.wantClient, actual, tt.name)
 		})
 	}
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/xlab/treeprint"
 
 	"github.com/acyumi/xdoc/component/app"
-	"github.com/acyumi/xdoc/component/argument"
 	"github.com/acyumi/xdoc/component/cloud"
 	"github.com/acyumi/xdoc/component/constant"
 )
@@ -76,7 +75,7 @@ func cleanName(name string) string {
 	return name
 }
 
-func setFileExtension(dn *DocumentNode, args *argument.Args) {
+func setFileExtension(dn *DocumentNode, args *Args) {
 	// 如果是file，则需要通过文件名获取文件类型，再继续下成的switch处理
 	if dn.Type == constant.DocTypeFile {
 		dn.CanDownload = true
@@ -195,9 +194,9 @@ func printTree(logWriter io.Writer, tree treeprint.Tree, dns []*DocumentNode, to
 	if totalCount == 0 {
 		root := tree
 		defer func() {
-			_, _ = fmt.Fprint(logWriter, root.String())
+			app.Fprint(logWriter, root.String())
 		}()
-		_, _ = fmt.Fprint(logWriter, "\n")
+		app.Fprint(logWriter, "\n")
 	}
 	temp := map[string]int{}
 	for _, child := range dns {
