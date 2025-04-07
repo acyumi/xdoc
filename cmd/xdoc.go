@@ -41,9 +41,16 @@ const (
 	flagNameGenerateConfig    = "generate-config"    // -g --generate-config
 	flagNameQuitAutomatically = "quit-automatically" // -q --quit-automatically
 	flagNameVerbose           = "verbose"            // -V --verbose
+
+	viperKeyGotConfigFile = "gotConfigFile"
 )
 
 var (
+	version = "dev"     // 编译时注入的版本号
+	gitRev  = "unknown" // 编译时注入的Git revision
+	builtBy = "unknown" // 编译时注入的Git revision
+	builtAt = "unknown" // 编译时注入的Git revision
+
 	//go:embed config-template.yaml
 	// 本来想将 config-template.yaml 放到根目录的，但是go的语法不支持 ../config-template.yaml。
 	// https://go.googlesource.com/proposal/+/master/design/draft-embed.md#go_embed-directives
@@ -73,7 +80,7 @@ func (c *XdocCommand) init(vip *viper.Viper, args *argument.Args) {
 【指定命令行参数执行飞书导出】
 ./xdoc export feishu --help
 ./xdoc export feishu --app-id cli_xxx --app-secret yyy --dir /tmp/docs --urls url1,url2...`,
-			Version:           "0.0.1",
+			Version:           version,
 			DisableAutoGenTag: true,
 			CompletionOptions: cobra.CompletionOptions{
 				HiddenDefaultCmd: true,
@@ -82,6 +89,11 @@ func (c *XdocCommand) init(vip *viper.Viper, args *argument.Args) {
 			RunE:              doNothing,
 			SilenceErrors:     true, // 禁用默认的错误输出，转为自己打印，子命令会遵循这个配置
 		}
+		c.SetVersionTemplate(fmt.Sprintf(`program: xdoc
+version: {{.Version}}
+git: %s
+built by: %s
+built at: %s`, gitRev, builtBy, builtAt))
 		c.SetOut(os.Stdout) // 子命令如果不覆盖，则会递归到根命令取到这个配置
 	}
 	c.vip = vip
@@ -177,6 +189,8 @@ func (c *XdocCommand) PersistentPreRunE(cmd *cobra.Command, _ []string) error {
 	}
 	exeDir := filepath.Dir(exePath)
 	configPath := filepath.Join(exeDir, "config.yaml")
+	// TODO 检查配置文件是否存在，提示是否覆盖
+	// TODO 支持配合--output来指定目录和文件名存放
 	err = app.Fs.WriteFile(configPath, []byte(configTemplate), 0644)
 	if err != nil {
 		return oops.Wrap(err)
@@ -240,5 +254,6 @@ func loadConfigFromFile(vip *viper.Viper, args *argument.Args) error {
 		// 其他错误
 		return oops.Wrap(err)
 	}
+	vip.Set(viperKeyGotConfigFile, true)
 	return nil
 }

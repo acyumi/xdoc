@@ -31,7 +31,7 @@ func main() {
 	// TODO 下载UI程序支持快速滚动到顶部和底部、按ctrl+↑向上滚动10%、按ctrl+↓向下滚动10%
 	// TODO 补充更多使用说明，如主程序参数、下载UI状态下的快捷键说明
 	// TODO 支持跳过已下载文件（将下载进度保存到缓存文件中，每次执行都做一下检查）
-	// TODO 程序版本通过build命令指定，并记录revision
+	// TODO 支持交互式输入进行操作
 	// 执行命令
 	if args, err := cmd.Execute(&cmd.XdocCommand{}); err != nil {
 		app.Fprintln(os.Stderr, "----------------------------------------------")

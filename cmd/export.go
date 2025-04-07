@@ -15,15 +15,18 @@
 package cmd
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/pterm/pterm"
 	"github.com/samber/oops"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
+	"github.com/acyumi/xdoc/component/app"
 	"github.com/acyumi/xdoc/component/argument"
 )
 
@@ -105,6 +108,10 @@ func (c *exportCommand) exec() error {
 		c.subCommand = commandNameFeishu
 	}
 	if c.subCommand == "" {
+		if c.vip.GetBool(viperKeyGotConfigFile) {
+			tips := pterm.Warning.Sprintf("读取到了配置文件, 但未识别到相应开关被打开，请检查")
+			app.Fprintln(c.OutOrStdout(), fmt.Sprintf("\n%s\n\n-> %s\n", tips, c.args.ConfigFile))
+		}
 		return pflag.ErrHelp
 	}
 	for _, child := range c.children() {

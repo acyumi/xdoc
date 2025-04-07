@@ -46,6 +46,20 @@ set -eo pipefail
 
 # 脚本所在目录
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+# 定位go.mod文件
+GO_MOD_FILE="${SCRIPT_DIR}/go.mod"
+# 检查文件是否存在
+if [ ! -f "${GO_MOD_FILE}" ]; then
+    echo "错误: go.mod 文件不存在于 ${SCRIPT_DIR}"
+    exit 1
+fi
+# 提取模块名称
+MODULE_NAME=$(awk '/^module / {print $2; exit}' "${GO_MOD_FILE}")  # 精确匹配module行
+# 验证模块名有效性
+if [[ -z "${MODULE_NAME}" ]]; then
+    echo "错误: 无法从 go.mod 中解析模块名"
+    exit 1
+fi
 # 构建输出目录
 BUILD_DIR="${SCRIPT_DIR}/output"
 # 依赖列表，格式 "工具名:库@版本"
@@ -143,6 +157,28 @@ function init() {
 function build() {
     mkdir -p "${BUILD_DIR}"
 
+    # 取出定义version和gitRev全局变量的包名
+    local package_name="${MODULE_NAME}/cmd"
+    # 获取版本号：优先使用环境变量，否则使用git revision或默认值
+    VERSION=${VERSION:-`git rev-parse --short HEAD 2>/dev/null`}
+    if [ -z "$VERSION" ]; then
+        VERSION="dev"
+    fi
+    # 获取git revision（强制获取，失败则设为unknown）
+    GIT_REVISION=`git rev-parse HEAD 2>/dev/null || echo "unknown"`
+    BUILT_BY=`git config user.name 2>/dev/null || echo "unknown"`
+    BUILT_AT=`date +%Y-%m-%dT%H:%M:%S+08:00`
+    # 编译参数注入版本信息
+    local build_flags="-X ${package_name}.version=${VERSION}"
+    build_flags="${build_flags} -X ${package_name}.gitRev=${GIT_REVISION}"
+    build_flags="${build_flags} -X ${package_name}.builtBy=${BUILT_BY}"
+    build_flags="${build_flags} -X ${package_name}.builtAt=${BUILT_AT}"
+
+    echo "程序版本: ${VERSION}"
+    echo "git revision: ${GIT_REVISION}"
+    echo "built by: ${BUILT_BY}"
+    echo "built at: ${BUILT_AT}"
+
     platforms=(
         "windows/amd64"
         "windows/arm64"
@@ -166,8 +202,10 @@ function build() {
             output_name+=".darwin"
         fi
 
+        # TODO 加builtAt、builtBy
         echo "构建 ${GOOS}/${GOARCH} -> ${output_name}"
-        env GOOS="${GOOS}" GOARCH="${GOARCH}" go build -o "${BUILD_DIR}/${output_name}" "${SCRIPT_DIR}/main.go"
+        env GOOS="${GOOS}" GOARCH="${GOARCH}" go build -ldflags "${build_flags}" \
+            -o "${BUILD_DIR}/${output_name}" "${SCRIPT_DIR}/main.go"
     done
 
     echo "构建完成，输出目录: ${BUILD_DIR}"
@@ -194,32 +232,14 @@ function run() {
 
 # 格式化代码
 function fmt() {
-    # 定位go.mod文件
-    local go_mod_file="${SCRIPT_DIR}/go.mod"
-
-    # 检查文件是否存在
-    if [ ! -f "${go_mod_file}" ]; then
-        echo "错误: go.mod 文件不存在于 ${SCRIPT_DIR}"
-        exit 1
-    fi
-
-    # 提取模块名称
-    local module_name=$(awk '/^module / {print $2; exit}' "${go_mod_file}")  # 精确匹配module行
-
-    # 验证模块名有效性
-    if [[ -z "${module_name}" ]]; then
-        echo "错误: 无法从 go.mod 中解析模块名"
-        exit 1
-    fi
-
-    echo "检测到项目模块名: ${module_name}"
+    echo "检测到项目模块名: ${MODULE_NAME}"
     echo "执行 gofmt..."
     gofmt -w -r 'interface{} -> any' "${SCRIPT_DIR}" 2>&1
 
     echo "整理 imports..."
-    echo "执行 goimports-reviser -project-name "${module_name}" ./... 2>&1"
+    echo "执行 goimports-reviser -project-name "${MODULE_NAME}" ./... 2>&1"
     check_and_install_tool "goimports-reviser"
-    goimports-reviser -project-name "${module_name}" ./... 2>&1
+    goimports-reviser -project-name "${MODULE_NAME}" ./... 2>&1
 
     echo "整理 tag (对齐、排序)，注意排序应与 .golangci.yaml 中配置的 tagalign 的配置一致..."
     check_and_install_tool "tagalign" "-V=full" "devel"
@@ -274,7 +294,7 @@ function clean() {
 # 清理构建目录
 function progress() {
     echo "测试进度条程序--------------------------------"
-    go run "${SCRIPT_DIR}/main.go" export --url https://progress.test/xx/yy --app-id "1" --app-secret "2"
+    go run "${SCRIPT_DIR}/main.go" export feishu --urls https://progress.test/xx/yy --app-id "1" --app-secret "2"
 }
 
 # 帮助文档

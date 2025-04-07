@@ -10,7 +10,7 @@ windows中建议使用 **PowerShell** (win11默认终端)执行本程序，`gitb
 
 ### 2.1、下载程序
 
-从 [**Releases** ](https://github.com/acyumi/xdoc/releases) 地址中下载相应系统的可执行程序
+从 [**Releases**](https://github.com/acyumi/xdoc/releases) 地址中下载相应系统的可执行程序
 
 | OS      | 架构  | 程序               |
 | ------- | ----- | ----------------- |
@@ -35,7 +35,12 @@ windows中建议使用 **PowerShell** (win11默认终端)执行本程序，`gitb
 .\xdoc export -h
 .\xdoc export --help
 .\xdoc help export
+.\xdoc export feishu -h
+.\xdoc export feishu --help
+.\xdoc help export feishu
 ```
+
+**截图和录屏可能是旧版本的，请以实际版本的为准，关键功能不会有太大差别**
 
 <img src="assets/image-20250326231938537.png" alt="image-20250326231938537" style="zoom:40%;" />
 
@@ -47,10 +52,15 @@ windows中建议使用 **PowerShell** (win11默认终端)执行本程序，`gitb
 
 ```bash
 # 使用当前目录的config.yaml(无参时的默认指向)
+# 需要打开配置中的飞书导出开关，即export.feishu.enabled=true
 .\xdoc export
 
 # 指定当前目录下的local.yaml
 .\xdoc export --config ./local.yaml
+
+# 使用当前目录的config.yaml(无参时的默认指向)
+# 如果export.feishu.enabled=false，也可以直接指向第三级命令feishu来执行
+.\xdoc export feishu
 ```
 
 使用yaml配置文件，参考如下
@@ -62,7 +72,7 @@ url: "https://xxx.feishu.cn/wiki/xxx" # 注意应用需要有权限下载url对�
 dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子目录和文件
 ```
 
-更多参数及说明详见项目中的 [config-template](cmd/config-template.yaml)
+更多参数及说明详见项目中的 [**config-template**](cmd/config-template.yaml)
 
 
 
@@ -70,17 +80,17 @@ dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子�
 
 ```bash
 # 指定四大必填参数，下载完成后自动退出
-.\xdoc export -q --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
-.\xdoc export -quit-automatically --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
-.\xdoc export -q --app-id=cli_xxxxx --app-secret=xxxxxxx --dir=E:\tmp\xxxx --urls=https://xxx.feishu.cn/wiki/xxx
+.\xdoc export feishu -q --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export feishu -quit-automatically --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export feishu -q --app-id=cli_xxxxx --app-secret=xxxxxxx --dir=E:\tmp\xxxx --urls=https://xxx.feishu.cn/wiki/xxx
 
 # 只列出待下载的文档树，不进行下载
-.\xdoc export -l --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
-.\xdoc export --list-only --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export feishu -l --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export feishu --list-only --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
 
 # 下载完成后不自动退出
-.\xdoc export --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
-.\xdoc export -q=false --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export feishu --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
+.\xdoc export feishu -q=false --app-id cli_xxxxx --app-secret xxxxxxx --dir E:\tmp\xxxx --urls https://xxx.feishu.cn/wiki/xxx
 ```
 
 
@@ -106,6 +116,7 @@ dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子�
 
 ## 3、功能说明
 
+- 支持生成程序需要的配置文件，便捷使用
 - 支持通过浏览器直接复制url下载文档及其子文档
   - 通过url自动判断是云文档还是知识库的文档
 - 支持指定导出文件的类型

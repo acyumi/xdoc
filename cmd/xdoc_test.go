@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
+	"regexp"
 	"testing"
 
 	"github.com/samber/oops"
@@ -435,20 +435,50 @@ Global Flags:
 				s.Require().NoError(err, tt.name)
 			}
 			s.Equal(tt.wantVerbose, args.Verbose, tt.name)
-			// 不同终端打印出来的效果会有一点差别
 			actual := buf.String()
-			if termlink.SupportsHyperlinks() {
-				actual = strings.ReplaceAll(actual,
-					`]8;;https://github.com/acyumi/xdoc[3;32mgithub.com/acyumi/xdoc]8;;`,
-					`[3;32mgithub.com/acyumi/xdoc (https://github.com/acyumi/xdoc)`)
-				actual = strings.ReplaceAll(actual,
-					fmt.Sprintf(`]8;;%s[3;32mconfig.yaml]8;;`, filepath.Clean("/tmp/config.yaml")),
-					fmt.Sprintf(`[3;32mconfig.yaml (%s)`, filepath.Clean("/tmp/config.yaml")))
-			}
+			actual = cleanHyperlinks(actual)
 			// fmt.Print(actual)
 			s.Equal(tt.want, actual, tt.name)
 		})
 	}
+}
+
+var (
+	hyperlinksRegex  = regexp.MustCompile(`]8;;(.+)(\[(\d{1,2};)*\d{1,2}m)?(.+)]8;;\[0m`)
+	normalLinksRegex = regexp.MustCompile(`(\[(\d{1,2};)*\d{1,2}m)(.+) \(.+\)\[0m`)
+)
+
+// cleanHyperlinks 如果终端支持超链接，则替换为普通格式再进行比较。
+func cleanHyperlinks(str string) string {
+	// 不同终端打印出来的效果会有一点差别
+	if termlink.SupportsHyperlinks() {
+		str = hyperlinksRegex.ReplaceAllString(str, `$2$4 ($1)[0m`)
+	}
+	return str
+}
+
+func (s *XdocTestSuite) Test_regex_replace() {
+	str1 := "你好\x1b]8;;https://xxx.feishu.cn\x07\u001B[30;33;32mxxx.feishu\x1b]8;;\x07\u001b[0m你好"
+	result := hyperlinksRegex.ReplaceAllString(str1, "666")
+	s.Equal("你好666你好", result)
+
+	str2 := `你好]8;;https://xxx.feishu.cn[30;33;32mxxx.feishu]8;;[0m你好`
+	result = hyperlinksRegex.ReplaceAllString(str2, "777")
+	s.Equal("你好777你好", result)
+
+	str3 := `你好]8;;https://feishu.cn[32mfeishu]8;;[0m你好`
+	result = hyperlinksRegex.ReplaceAllString(str3, "888")
+	s.Equal("你好888你好", result)
+
+	str4 := `你好]8;;https://feishu.cn[32mfeishu]8;;[0m你好`
+	result = hyperlinksRegex.ReplaceAllString(str4, `[3;32m$4 ($1)`)
+	s.Equal(`你好[3;32mfeishu (https://feishu.cn)你好`, result)
+	result = hyperlinksRegex.ReplaceAllString(str4, `$2$4 ($1)`)
+	s.Equal(`你好[32mfeishu (https://feishu.cn)你好`, result)
+
+	str5 := `你好[3;32mhttps://feishu.cn (feishu)[0m你好`
+	result = normalLinksRegex.ReplaceAllString(str5, `999`)
+	s.Equal(`你好999你好`, result)
 }
 
 // 测试配置文件加载。
