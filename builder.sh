@@ -129,15 +129,21 @@ function check_and_install_tool() {
 
     # 检查命令是否存在
     if ! command -v "$cmd" &>/dev/null; then
-        echo "警告: 找不到 $tool_name 命令"
+        echo "WARN: 找不到 $tool_name 命令"
         install_tool "$tool_name"
+        return
+    fi
+
+    # 如果是args是特殊的值，那就跳过
+    if [[ "$args" == "_skip_version_check_" ]]; then
+        echo "INFO: 跳过 $tool_name 命令版本检查"
         return
     fi
 
     local current_version=`$cmd "$args" 2>&1`
     # echo "当前版本: $current_version"
     if [[ "$current_version" != *"$match_str"* ]]; then
-        echo "警告: $tool_name 当前版本不匹配，需要 $expected_version"
+        echo "WARN: $tool_name 当前版本不匹配，需要 $expected_version"
         install_tool "$tool_name"
     fi
 }
@@ -145,10 +151,15 @@ function check_and_install_tool() {
 
 # 安装依赖
 function init() {
+    local args="$1"
     echo "开始安装构建依赖工具..."
     for entry in "${DEPENDENCIES[@]}"; do
         IFS=':' read -r tool repo <<< "$entry"
-        install_tool "$tool"
+        if [[ "$args" == "-c" ]]; then
+          check_and_install_tool "$tool" "_skip_version_check_"
+        else
+          install_tool "$tool"
+        fi
     done
     echo "所有依赖安装完成"
 }
@@ -225,7 +236,7 @@ function test() {
 function run() {
     local config_file="${SCRIPT_DIR}/config.yaml"
     if [ ! -f "${config_file}" ]; then
-        echo "警告: 配置文件 ${config_file} 不存在"
+        echo "WARN: 配置文件 ${config_file} 不存在"
     fi
     go run "${SCRIPT_DIR}/main.go" --config "${config_file}"
 }
@@ -253,6 +264,7 @@ function fmt() {
     fi
 
     echo "检查添加 license..."
+    check_and_install_tool "addlicense" "_skip_version_check_"
     addlicense -c "acyumi <417064257@qq.com>" .
 
     echo "整理 go.mod..."
@@ -283,6 +295,15 @@ function do_mockery() {
     # v3版本使用: check_and_install_tool "mockery" "version"
     check_and_install_tool "mockery" "--version"
     mockery
+}
+
+# 清理构建目录
+# 函数名不用 mockery 否则会死循环
+function act_push_offline() {
+    echo "执行 act 推送到 github 本地测试"
+    # 需要本地启动了docker服务、安装好act、挂好梯子
+    # act 执行过程会自动下载catthehacker/ubuntu:act-latest镜像、actions-setup-go@v4等依赖
+    act push --action-offline-mode
 }
 
 # 清理构建目录
@@ -318,7 +339,7 @@ function usage() {
 # 参数解析
 case "$1" in
     init)
-        init
+        init $2
         ;;
     build)
         build
@@ -346,6 +367,9 @@ case "$1" in
     mockery)
         do_mockery
         fmt
+        ;;
+    act)
+        act_push_offline
         ;;
     progress)
         progress
