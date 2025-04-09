@@ -228,6 +228,14 @@ export:
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
 			tempFile := tt.configFile
+			defer func() {
+				yes, err := app.Fs.Exists(tempFile)
+				s.Require().NoError(err, tt.name)
+				if yes {
+					err = app.Fs.Remove(tempFile)
+					s.Require().NoError(err, tt.name)
+				}
+			}()
 			if tempFile == "" && tt.configContent != nil {
 				exePath, err := app.Executable()
 				s.Require().NoError(err, "获取程序所在目录失败")
@@ -276,12 +284,6 @@ export:
 				s.Require().NoError(err, tt.name)
 			}
 			s.Equal(tt.wantConfigFile, tempFile, tt.name)
-			yes, err := app.Fs.Exists(tempFile)
-			s.Require().NoError(err, tt.name)
-			if yes {
-				err = app.Fs.Remove(tempFile)
-				s.Require().NoError(err, tt.name)
-			}
 		})
 	}
 }

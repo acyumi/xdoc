@@ -395,12 +395,18 @@ Global Flags:
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			defer func() {
-				app.Executable = s.executable
-				app.Fs = s.memFs
-			}()
 			vip := app.NewViper()
 			args := &argument.Args{}
+			defer func() {
+				app.Executable = s.executable
+				yes, err := app.Fs.Exists(args.ConfigFile)
+				s.Require().NoError(err, tt.name)
+				if yes {
+					err = s.memFs.Remove(args.ConfigFile)
+					s.Require().NoError(err, tt.name)
+				}
+				app.Fs = s.memFs
+			}()
 			root := &XdocCommand{}
 			// 初始化以防root.get()为空
 			root.init(vip, args)
@@ -557,11 +563,17 @@ export:
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
+			configFile := tt.configFile
 			defer func() {
 				app.Executable = s.executable
+				yes, err := app.Fs.Exists(configFile)
+				s.Require().NoError(err, tt.name)
+				if yes {
+					err = s.memFs.Remove(configFile)
+					s.Require().NoError(err, tt.name)
+				}
 				app.Fs = s.memFs
 			}()
-			configFile := tt.configFile
 			if tt.configFile == "" && tt.configContent != nil {
 				exePath, err := app.Executable()
 				s.Require().NoError(err, "获取程序所在目录失败")
@@ -590,12 +602,6 @@ export:
 			}
 			s.Equal(tt.wantConfig, args.ConfigFile, tt.name)
 			s.Equal(tt.wantAppID, vip.GetString(viperKeyPrefix+flagNameAppID), tt.name)
-			yes, err := app.Fs.Exists(args.ConfigFile)
-			s.Require().NoError(err, tt.name)
-			if yes {
-				err = app.Fs.Remove(args.ConfigFile)
-				s.Require().NoError(err, tt.name)
-			}
 		})
 	}
 }

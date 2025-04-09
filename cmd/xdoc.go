@@ -173,8 +173,7 @@ func (c *XdocCommand) PersistentPreRunE(cmd *cobra.Command, _ []string) error {
 	c.args.Verbose = c.vip.GetBool(flagNameVerbose)
 	c.args.GenerateConfig = c.vip.GetBool(flagNameGenerateConfig)
 	c.args.QuitAutomatically = c.vip.GetBool(flagNameQuitAutomatically)
-	genConf := c.vip.GetBool(flagNameGenerateConfig)
-	if !genConf {
+	if !c.args.GenerateConfig {
 		// 如果是根命令，则打印 logo 和 帮助信息
 		if c.Command == cmd {
 			return pflag.ErrHelp
