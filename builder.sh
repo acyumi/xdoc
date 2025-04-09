@@ -202,7 +202,7 @@ function build() {
             output_name+=".darwin"
         fi
 
-        # TODO 加builtAt、builtBy
+        # TODO 把README.md一起打包
         echo "构建 ${GOOS}/${GOARCH} -> ${output_name}"
         env GOOS="${GOOS}" GOARCH="${GOARCH}" go build -ldflags "${build_flags}" \
             -o "${BUILD_DIR}/${output_name}" "${SCRIPT_DIR}/main.go"

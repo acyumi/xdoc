@@ -51,6 +51,10 @@ windows中建议使用 **PowerShell** (win11默认终端)执行本程序，`gitb
 ### 2.3、指定配置文件执行
 
 ```bash
+# 在当前目录生成config.yaml配置文件
+# 配置文件生成后，请自行修改配置才能使用
+.\xdoc -g
+
 # 使用当前目录的config.yaml(无参时的默认指向)
 # 需要打开配置中的飞书导出开关，即export.feishu.enabled=true
 .\xdoc export
@@ -66,10 +70,15 @@ windows中建议使用 **PowerShell** (win11默认终端)执行本程序，`gitb
 使用yaml配置文件，参考如下
 
 ```yaml
-app-id: "cli_xxx"
-app-secret: "xxx"
-url: "https://xxx.feishu.cn/wiki/xxx" # 注意应用需要有权限下载url对应的文档
-dir: "/xxx/docs" # 注意当前用户需要在指定目录下有权限创建子目录和文件
+export:
+  list-only: false
+  feishu:
+    enabled: true
+    app-id: "cli_xxx"
+    app-secret: "xxx"
+    urls:
+      - "https://xxx.feishu.cn/wiki/xxx"
+    dir: "/xxx/docs"
 ```
 
 更多参数及说明详见项目中的 [**config-template**](cmd/config-template.yaml)
@@ -189,7 +198,7 @@ end
 | 导出云文档                       | drive:export:readonly         | 创建导出任务、查询导出任务结果、下载导出文件                 |
 | -                                | -                             | 其他权限todo，待我校验后回来补上                             |
 
-可以用以下JSON批量导入权限、或者也可以自动按上面列表一个一个地搜索添加
+可以用以下JSON批量导入权限、或者也可以自行按上面列表一个一个地搜索添加
 
 ```json
 {
