@@ -26,6 +26,7 @@ import (
 // SDK 使用文档：https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/server-side-sdk/golang-sdk-guide/preparations
 func main() {
 	// TODO 导出和下载的协程数量支持配置
+	// TODO 检查单个文件导出结果的尝试次数支持配置
 	// TODO 执行日志输出到文件
 	// TODO docx 和 pdf 下载后自动去除水印
 	// TODO 下载UI程序支持快速滚动到顶部和底部、按ctrl+↑向上滚动10%、按ctrl+↓向下滚动10%

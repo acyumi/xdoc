@@ -74,6 +74,8 @@ DEPENDENCIES=(
     "mockery:github.com/vektra/mockery/v2@v2.53.2"
     # License添加工具
     "addlicense:github.com/google/addlicense@latest"
+    # yaml、json、xml、toml格式化工具
+    # "yq:github.com/mikefarah/yq/v4@v4.45.1"
 )
 
 # 获取工具库版本
@@ -228,7 +230,9 @@ function test() {
     # 跑单测并统计覆盖率到html
     # main.go添加了!test构建标签，这里用于将main.go排除到单测覆盖之外
     go test -tags=test -race -coverprofile=coverage.out -covermode=atomic "${SCRIPT_DIR}/..."
+    coverage=`go tool cover -func=coverage.out | grep 'total' | awk '{print $3}' | tr -d '%'`
     go tool cover -html=coverage.out -o coverage.html
+    echo "项目总覆盖率: ${coverage}%"
     echo "覆盖率存放在coverage.html中---------------------------"
 }
 
@@ -303,7 +307,11 @@ function act_push_offline() {
     echo "执行 act 推送到 github 本地测试"
     # 需要本地启动了docker服务、安装好act、挂好梯子
     # act 执行过程会自动下载catthehacker/ubuntu:act-latest镜像、actions-setup-go@v4等依赖
-    act push --action-offline-mode
+    # 添加ACT=true环境变量，以便本地执行时跳过依赖github环境的相应步骤
+    act push --action-offline-mode \
+      --secret GITHUB_TOKEN="test_token" \
+      --env ACT=true \
+      --env GITHUB_API_URL="https://api.github.com"
 }
 
 # 清理构建目录

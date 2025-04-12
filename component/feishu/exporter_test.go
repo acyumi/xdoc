@@ -43,6 +43,10 @@ type exporterTestSuite struct {
 	mockProgram *MockProgram
 }
 
+func (s *exporterTestSuite) SetupSuite() {
+	cleanSleep()
+}
+
 func (s *exporterTestSuite) SetupTest() {
 	s.mockClient = &MockClient{}
 	s.mockProgram = &MockProgram{}
@@ -248,11 +252,11 @@ func (s *exporterTestSuite) Test_exporter_checkExport() {
 			expectedError:  nil,
 		},
 		{
-			name:   "初始化, 尝试5次后超时失败",
+			name:   "初始化, 尝试30次后超时失败",
 			di:     di,
 			ticket: "doc1_ticket",
 			setupMock: func(di *DocumentInfo, ticket string) {
-				s.mockProgram.EXPECT().Update(di.FilePath, 0.10, progress.StatusExporting, "查询%d次", mock.Anything).Times(5)
+				s.mockProgram.EXPECT().Update(di.FilePath, 0.10, progress.StatusExporting, "查询%d次", mock.Anything).Times(30)
 				req := larkdrive.NewGetExportTaskReqBuilder().Ticket(ticket).Token(di.Token).Build()
 				s.mockClient.EXPECT().ExportGet(mock.Anything, req).Return(
 					&larkdrive.GetExportTaskResp{
@@ -264,8 +268,8 @@ func (s *exporterTestSuite) Test_exporter_checkExport() {
 						},
 					},
 					nil,
-				).Times(5)
-				s.mockProgram.EXPECT().Update(di.FilePath, 0.10, progress.StatusExporting, "等待完成导出任务").Times(5)
+				).Times(30)
+				s.mockProgram.EXPECT().Update(di.FilePath, 0.10, progress.StatusExporting, "等待完成导出任务").Times(30)
 			},
 			expectedResult: &exportResult{
 				DocumentInfo: di,

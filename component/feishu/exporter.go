@@ -64,7 +64,7 @@ func (e *exporter) doExport(di *DocumentInfo) (string, error) {
 
 // checkExport 查询导出任务结果。
 func (e *exporter) checkExport(di *DocumentInfo, ticket string) (*exportResult, progress.Status, error) {
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 30; i++ {
 		if e.completed.Load() {
 			return nil, progress.StatusInterrupted, nil
 		}
