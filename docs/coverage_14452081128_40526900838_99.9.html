@@ -1,0 +1,2787 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>cmd: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/acyumi/xdoc/cmd/export.go (100.0%)</option>
+				
+				<option value="file1">github.com/acyumi/xdoc/cmd/export_feishu.go (100.0%)</option>
+				
+				<option value="file2">github.com/acyumi/xdoc/cmd/root.go (100.0%)</option>
+				
+				<option value="file3">github.com/acyumi/xdoc/cmd/xdoc.go (100.0%)</option>
+				
+				<option value="file4">github.com/acyumi/xdoc/component/app/app.go (100.0%)</option>
+				
+				<option value="file5">github.com/acyumi/xdoc/component/argument/bind.go (100.0%)</option>
+				
+				<option value="file6">github.com/acyumi/xdoc/component/feishu/bind.go (100.0%)</option>
+				
+				<option value="file7">github.com/acyumi/xdoc/component/feishu/client.go (100.0%)</option>
+				
+				<option value="file8">github.com/acyumi/xdoc/component/feishu/client_retry.go (100.0%)</option>
+				
+				<option value="file9">github.com/acyumi/xdoc/component/feishu/document.go (100.0%)</option>
+				
+				<option value="file10">github.com/acyumi/xdoc/component/feishu/document_drive.go (100.0%)</option>
+				
+				<option value="file11">github.com/acyumi/xdoc/component/feishu/document_wiki.go (100.0%)</option>
+				
+				<option value="file12">github.com/acyumi/xdoc/component/feishu/exporter.go (100.0%)</option>
+				
+				<option value="file13">github.com/acyumi/xdoc/component/feishu/task.go (100.0%)</option>
+				
+				<option value="file14">github.com/acyumi/xdoc/component/progress/demo.go (100.0%)</option>
+				
+				<option value="file15">github.com/acyumi/xdoc/component/progress/progress.go (98.6%)</option>
+				
+				<option value="file16">github.com/acyumi/xdoc/component/progress/writer.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+        "fmt"
+        "net/url"
+        "os"
+        "strings"
+
+        "github.com/pterm/pterm"
+        "github.com/samber/oops"
+        "github.com/spf13/cobra"
+        "github.com/spf13/pflag"
+        "github.com/spf13/viper"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/argument"
+)
+
+const (
+        commandNameExport = "export" //
+
+        flagNameListOnly = "list-only" // -f --list-only
+
+        viperKeyFeishuEnabled = "export.feishu.enabled" //
+)
+
+type exportCommand struct {
+        *cobra.Command
+        vip        *viper.Viper
+        args       *argument.Args
+        subs       []command
+        subCommand string
+}
+
+func (c *exportCommand) init(vip *viper.Viper, args *argument.Args) <span class="cov8" title="12">{
+        c.Command = &amp;cobra.Command{
+                Use:   commandNameExport,
+                Short: "云文档批量导出器",
+                Long:  "这是云文档批量导出、下载到本地的程序",
+                Example: `【使用默认config.yaml(需要设置相关enabled值为true)】
+./xdoc export
+【指定配置文件】
+./xdoc export --config ./config.yaml
+./xdoc export --config ./local.yaml
+【指向下级命令】
+./xdoc export feishu --help
+./xdoc export feishu --config ./local.yaml
+./xdoc export feishu --app-id cli_xxx --app-secret yyy --dir /tmp/docs --urls https://xxx.feishu.cn/wiki/123456789`,
+                RunE: func(cmd *cobra.Command, _ []string) error </span><span class="cov6" title="7">{
+                        return c.exec()
+                }</span>,
+        }
+        <span class="cov8" title="12">c.vip = vip
+        c.args = args</span>
+}
+
+func (c *exportCommand) bind() (err error) <span class="cov8" title="12">{
+        persistentFlags := c.Command.PersistentFlags()
+        persistentFlags.BoolP(flagNameListOnly, "l", false, "是否只列出云文档信息不进行导出下载")
+        _ = c.vip.BindPFlag(commandNameExport+"."+flagNameListOnly, persistentFlags.Lookup(flagNameListOnly))
+        osArgs := os.Args[1:]
+        if len(osArgs) &gt;= 2 </span><span class="cov8" title="12">{
+                second := osArgs[1]
+                if !strings.HasPrefix(second, "-") </span><span class="cov4" title="3">{
+                        c.subCommand = second
+                        // 如果是指定了children()中存在子命令，则不会执行export的runE函数，那就可以跳过了
+                        return nil
+                }</span>
+        }
+        // 执行到这里就代表未指定export下的子命令，后续有需求可添加相应逻辑供runE函数使用
+        // 注意：遵循接口的设计，这里不要从c.vip中读取配置来使用，否则可有读取不到配置文件中的值
+        <span class="cov7" title="9">return nil</span>
+}
+
+func (c *exportCommand) get() *cobra.Command <span class="cov9" title="15">{
+        return c.Command
+}</span>
+
+func (c *exportCommand) children() []command <span class="cov9" title="19">{
+        // 这里children()会被调用多次，所以需要缓存起来
+        if len(c.subs) == 0 </span><span class="cov5" title="4">{
+                c.subs = []command{
+                        &amp;exportFeishuCommand{},
+                }
+        }</span>
+        <span class="cov9" title="19">return c.subs</span>
+}
+
+func (c *exportCommand) exec() error <span class="cov8" title="11">{
+        // export命令没有定义对应的flag参数，仅支持从配置文件或环境变量中取值
+        // 从配置文件或环境变量中取值判断是否启用飞书导出功能
+        if c.subCommand == "" &amp;&amp; c.vip.GetBool(viperKeyFeishuEnabled) </span><span class="cov4" title="3">{
+                // TODO 以后加入其他平台的云文档导出再继续判断，计划只同时支持打开一种开关
+                c.subCommand = commandNameFeishu
+        }</span>
+        <span class="cov8" title="11">if c.subCommand == "" </span><span class="cov4" title="3">{
+                if c.vip.GetBool(viperKeyGotConfigFile) </span><span class="cov1" title="1">{
+                        tips := pterm.Warning.Sprintf("读取到了配置文件, 但未识别到相应开关被打开，请检查")
+                        app.Fprintln(c.OutOrStdout(), fmt.Sprintf("\n%s\n\n-&gt; %s\n", tips, c.args.ConfigFile))
+                }</span>
+                <span class="cov4" title="3">return pflag.ErrHelp</span>
+        }
+        <span class="cov7" title="8">for _, child := range c.children() </span><span class="cov7" title="8">{
+                if child.get().Name() == c.subCommand </span><span class="cov6" title="6">{
+                        return child.exec()
+                }</span>
+        }
+        <span class="cov3" title="2">return oops.Code("InvalidArgument").Errorf("未找到export下的子命令: %s\n", c.subCommand)</span>
+}
+
+func analysisURL(docURL string) (host, typ, token string, err error) <span class="cov10" title="21">{
+        // 文件夹 folder_token：https://sample.feishu.cn/drive/folder/cSJe2JgtFFBwRuTKAJK6baNGUn0
+        // 文件 file_token：https://sample.feishu.cn/file/ndqUw1kpjnGNNaegyqDyoQDCLx1
+        // 文档 doc_token：https://sample.feishu.cn/docs/2olt0Ts4Mds7j7iqzdwrqEUnO7q
+        // 新版文档 document_id：https://sample.feishu.cn/docx/UXEAd6cRUoj5pexJZr0cdwaFnpd
+        // 电子表格 spreadsheet_token：https://sample.feishu.cn/sheets/MRLOWBf6J47ZUjmwYRsN8utLEoY
+        // 多维表格 app_token：https://sample.feishu.cn/base/Pc9OpwAV4nLdU7lTy71t6Kmmkoz
+        // 知识空间 space_id：https://sample.feishu.cn/wiki/settings/7075377271827264924（需要知识库管理员在设置页面获取该地址）
+        // 知识库节点 node_token：https://sample.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe
+        //
+        // https://root:123456@baidu.com:443?dddd=oo&amp;uuu=55#/adfadf/fade
+        // temp.Scheme = "https"
+        // temp.Opaque = ""
+        // temp.User = {username:root,password:123456}
+        // temp.Host = "baidu.com:443"
+        // addressURL.Path = ""
+        // addressURL.RawPath = ""
+        // addressURL.OmitHost = false
+        // addressURL.ForceQuery = false
+        // addressURL.RawQuery = "dddd=oo&amp;uuu=55"
+        // addressURL.Fragment = "/adfadf/fade"
+        // addressURL.RawFragment = ""
+        URL, err := url.Parse(docURL)
+        if err != nil </span><span class="cov1" title="1">{
+                return host, typ, token, oops.Code("BadRequest").Wrapf(err, "解析url地址失败：%s", docURL)
+        }</span>
+        <span class="cov9" title="20">if URL.Scheme != "http" &amp;&amp; URL.Scheme != "https" </span><span class="cov3" title="2">{
+                return host, typ, token, oops.Code("BadRequest").Errorf("url地址必须是http://或https://开头")
+        }</span>
+        <span class="cov9" title="18">host = strings.Split(URL.Host, ":")[0]
+        path := URL.Path
+        split := strings.Split(path, "/")
+        if len(split) &lt; 3 </span><span class="cov4" title="3">{
+                return host, typ, token, oops.Code("BadRequest").
+                        New("url地址的path部分至少包含两段才能解析出云文档类型和token，如:/docs/2olt0Ts4Mds7j7iqzdwrqEUnO7q")
+        }</span>
+        <span class="cov9" title="15">typ = strings.Join(split[0:len(split)-1], "/")
+        token = split[len(split)-1]
+        return host, typ, token, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+        "path/filepath"
+        "strings"
+        "time"
+
+        "github.com/pterm/pterm"
+        "github.com/samber/lo"
+        "github.com/samber/oops"
+        "github.com/spf13/cobra"
+        "github.com/spf13/pflag"
+        "github.com/spf13/viper"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/argument"
+        "github.com/acyumi/xdoc/component/cloud"
+        "github.com/acyumi/xdoc/component/feishu"
+        "github.com/acyumi/xdoc/component/progress"
+)
+
+const (
+        commandNameFeishu = "feishu"
+
+        flagNameAppID          = "app-id"          //    --app-id
+        flagNameAppSecret      = "app-secret"      //    --app-secret
+        flagNameURLs           = "urls"            //    --urls
+        flagNameDir            = "dir"             //    --dir
+        flagNameExt            = "ext"             //    --ext
+        flagNameFileExtensions = "file.extensions" //    --ext
+
+        viperKeyPrefix = "export.feishu."
+)
+
+type exportFeishuCommand struct {
+        *cobra.Command
+        vip  *viper.Viper
+        args *feishu.Args
+}
+
+func (c *exportFeishuCommand) init(vip *viper.Viper, args *argument.Args) <span class="cov6" title="16">{
+        c.Command = &amp;cobra.Command{
+                Use:   commandNameFeishu,
+                Short: "飞书云文档批量导出器",
+                Long:  "这是飞书云文档批量导出、下载到本地的程序",
+                Example: `【使用默认config.yaml】
+./xdoc export feishu
+【指定配置文件】
+./xdoc export feishu --config ./config.yaml
+./xdoc export feishu --config ./local.yaml
+【指定命令行参数】
+./xdoc export feishu --help
+./xdoc export feishu --app-id cli_xxx --app-secret yyy --dir /tmp/docs --urls url1,url2...
+./xdoc export feishu --app-id cli_xxx --app-secret yyy --dir /tmp/docs --urls https://xxx.feishu.cn/wiki/123456789`,
+                RunE: func(_ *cobra.Command, _ []string) error </span><span class="cov5" title="7">{
+                        // 执行到当前命令了，那就把开关设置为打开
+                        c.vip.Set(viperKeyFeishuEnabled, true)
+                        return c.exec()
+                }</span>,
+        }
+        <span class="cov6" title="16">c.vip = vip
+        c.args = &amp;feishu.Args{Args: args}</span>
+}
+
+func (c *exportFeishuCommand) bind() (err error) <span class="cov6" title="15">{
+        // 添加命令行参数
+        flags := c.Command.Flags()
+        flags.String(flagNameAppID, "", "飞书应用ID")
+        flags.String(flagNameAppSecret, "", "飞书应用密钥")
+        flags.StringSlice(flagNameURLs, []string{}, "文档地址, 如 https://sample.feishu.cn/wiki/MP4PwXweMi2FydkkG0ScNwBdnLz")
+        flags.String(flagNameDir, "", "文档存放目录(本地)")
+        flags.StringToString(flagNameExt, map[string]string{}, `文档扩展名映射, 用于指定文档下载后的文件类型, 如 docx=docx,doc=pdf
+对应配置文件参数 export.feishu.file.extensions`)
+
+        // 绑定 Viper
+        flags.VisitAll(func(flag *pflag.Flag) </span><span class="cov10" title="75">{
+                switch flag.Name </span>{
+                case flagNameExt:<span class="cov6" title="15">
+                        // 不绑定，因为要实现 --ext 参数【局部覆盖】fileExtensions中的key的效果
+                        return</span>
+                default:<span class="cov9" title="60">
+                        _ = c.vip.BindPFlag(viperKeyPrefix+flag.Name, flag)</span>
+                }
+        })
+        <span class="cov6" title="15">return nil</span>
+}
+
+func (c *exportFeishuCommand) get() *cobra.Command <span class="cov6" title="16">{
+        return c.Command
+}</span>
+
+func (c *exportFeishuCommand) children() []command <span class="cov6" title="12">{
+        return []command{}
+}</span>
+
+func (c *exportFeishuCommand) exec() (err error) <span class="cov5" title="10">{
+        out := c.OutOrStdout()
+        args := c.args
+        err = setArgs(c.Command, c.vip, args)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        <span class="cov5" title="9">args.StartTime = time.Now()
+        defer func() </span><span class="cov5" title="9">{
+                duration := time.Since(args.StartTime)
+                app.Fprintln(out, "----------------------------------------------")
+                app.Fprintf(out, "完成飞书云文档操作, 总耗时: %s\n", duration.String())
+                if err != nil </span><span class="cov5" title="8">{
+                        return
+                }</span>
+                <span class="cov1" title="1">err, _ = recover().(error)</span>
+        }()
+        // 判断配置文件是否存在
+        <span class="cov5" title="9">yes, err := app.Fs.Exists(args.ConfigFile)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        <span class="cov5" title="8">configFileLog := args.ConfigFile
+        if !yes </span><span class="cov2" title="2">{
+                configFileLog += pterm.LightYellow("(不存在)")
+        }</span>
+        <span class="cov5" title="8">app.Fprintln(out, "----------------------------------------------")
+        app.Fprintf(out, " ConfigFile: %s\n", configFileLog)
+        app.Fprintf(out, " Verbose: %v\n", args.Verbose)
+        app.Fprintf(out, " AppID: %s\n", args.Desensitize(args.AppID))
+        app.Fprintf(out, " AppSecret: %s\n", args.Desensitize(args.AppSecret))
+        app.Fprintf(out, " DocURLs: %v\n", func() string </span><span class="cov5" title="8">{
+                ds := args.DesensitizeSlice(args.DocURLs...)
+                urls, _ := app.MarshalIndent(ds, "", "  ")
+                return strings.ReplaceAll(string(urls), "\n", "\n ")
+        }</span>())
+        <span class="cov5" title="8">app.Fprintf(out, " SaveDir: %s\n", args.SaveDir)
+        app.Fprintf(out, " FileExtensions: %v\n", args.FileExtensions)
+        app.Fprintf(out, " ListOnly: %v\n", args.ListOnly)
+        app.Fprintf(out, " QuitAutomatically: %v\n", args.QuitAutomatically)
+        app.Fprintln(out, "----------------------------------------------")
+        if err = args.Validate(); err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        // 先通过文档地址获取文件类型和token
+        <span class="cov5" title="7">var gotHost string
+        var docSources []*cloud.DocumentSource
+        for _, docURL := range args.DocURLs </span><span class="cov5" title="8">{
+                host, typ, token, err := analysisURL(docURL)
+                if err != nil </span><span class="cov1" title="1">{
+                        return oops.Wrap(err)
+                }</span>
+                <span class="cov5" title="7">if gotHost == "" </span><span class="cov4" title="6">{
+                        gotHost = host
+                }</span> else<span class="cov1" title="1"> if gotHost != host </span><span class="cov1" title="1">{
+                        return oops.Errorf("文档地址不匹配, 请确保所有文档地址都是同一域名")
+                }</span>
+                <span class="cov4" title="6">docSources = append(docSources, &amp;cloud.DocumentSource{Type: typ, Token: token})</span>
+        }
+        <span class="cov4" title="5">err = doExport(args, gotHost, docSources)
+        return oops.Wrap(err)</span>
+}
+
+func setArgs(cmd *cobra.Command, vip *viper.Viper, args *feishu.Args) error <span class="cov5" title="10">{
+        // 从 Viper 中读取配置
+        args.ListOnly = vip.GetBool(commandNameExport + "." + flagNameListOnly)
+        args.Enabled = vip.GetBool(viperKeyFeishuEnabled)
+        args.AppID = vip.GetString(getFlagName(flagNameAppID))
+        args.AppSecret = vip.GetString(getFlagName(flagNameAppSecret))
+        args.DocURLs = vip.GetStringSlice(getFlagName(flagNameURLs))
+        args.SaveDir = vip.GetString(getFlagName(flagNameDir))
+        args.SaveDir = filepath.Clean(args.SaveDir)
+        args.SetFileExtensions(vip.GetStringMapString(getFlagName(flagNameFileExtensions)))
+        overrides, err := cmd.Flags().GetStringToString(flagNameExt)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        <span class="cov5" title="9">args.SetFileExtensions(overrides)
+        // 去重
+        args.DocURLs = lo.Uniq[string](args.DocURLs)
+        return nil</span>
+}
+
+func getFlagName(name string) string <span class="cov9" title="62">{
+        return viperKeyPrefix + name
+}</span>
+
+func doExport(args *feishu.Args, host string, docSources []*cloud.DocumentSource) error <span class="cov5" title="8">{
+        switch </span>{
+        case strings.HasSuffix(host, "feishu.cn"):<span class="cov2" title="2">
+                // 创建 飞书客户端
+                client := feishu.NewClient(args)
+                // 下载文档
+                return client.DownloadDocuments(docSources)</span>
+        case host == "progress.test":<span class="cov1" title="1">
+                // 创建 进度条测试客户端
+                client := progress.NewTestClient()
+                return client.DownloadDocuments(docSources)</span>
+        case host == "silence.test":<span class="cov1" title="1">
+                return nil</span>
+        default:<span class="cov3" title="4">
+                return oops.Errorf("不支持的文档来源域名: %s", host)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+        "github.com/samber/oops"
+        "github.com/spf13/viper"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/argument"
+)
+
+// Execute 基于接口定义统一初始化和绑定参数后执行。
+func Execute(root command) (*argument.Args, error) <span class="cov6" title="4">{
+        vip := app.NewViper()
+        args := &amp;argument.Args{}
+        err := prepareCommand(root, vip, args)
+        if err != nil </span><span class="cov1" title="1">{
+                return args, oops.Wrap(err)
+        }</span>
+        <span class="cov5" title="3">err = root.get().Execute()
+        return args, oops.Wrap(err)</span>
+}
+
+func prepareCommand(cmd command, vip *viper.Viper, args *argument.Args) error <span class="cov10" title="11">{
+        cmd.init(vip, args)
+        err := cmd.bind()
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        <span class="cov9" title="10">c := cmd.get()
+        for _, child := range cmd.children() </span><span class="cov8" title="7">{
+                err = prepareCommand(child, vip, args)
+                if err != nil </span><span class="cov1" title="1">{
+                        return oops.Wrap(err)
+                }</span>
+                <span class="cov7" title="6">cc := child.get()
+                if c != cc </span><span class="cov7" title="6">{
+                        c.AddCommand(cc)
+                }</span>
+        }
+        <span class="cov9" title="9">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+        _ "embed"
+        "errors"
+        "fmt"
+        "io/fs"
+        "os"
+        "path/filepath"
+        "strings"
+
+        "github.com/pterm/pterm"
+        "github.com/samber/oops"
+        "github.com/savioxavier/termlink"
+        "github.com/spf13/cobra"
+        "github.com/spf13/pflag"
+        "github.com/spf13/viper"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/argument"
+)
+
+const (
+        commandNameXdoc = "xdoc"
+
+        flagNameConfig            = "config"             //    --config
+        flagNameGenerateConfig    = "generate-config"    // -g --generate-config
+        flagNameQuitAutomatically = "quit-automatically" // -q --quit-automatically
+        flagNameVerbose           = "verbose"            // -V --verbose
+
+        viperKeyGotConfigFile = "gotConfigFile"
+)
+
+var (
+        version = "dev"     // 编译时注入的版本号
+        gitRev  = "unknown" // 编译时注入的Git revision
+        builtBy = "unknown" // 编译时注入的Git revision
+        builtAt = "unknown" // 编译时注入的Git revision
+
+        //go:embed config-template.yaml
+        // 本来想将 config-template.yaml 放到根目录的，但是go的语法不支持 ../config-template.yaml。
+        // https://go.googlesource.com/proposal/+/master/design/draft-embed.md#go_embed-directives
+        // https://github.com/golang/go/issues/46056
+        configTemplate string
+)
+
+type XdocCommand struct {
+        *cobra.Command
+        vip  *viper.Viper
+        args *argument.Args
+}
+
+func (c *XdocCommand) init(vip *viper.Viper, args *argument.Args) <span class="cov8" title="33">{
+        if c.Command == nil </span><span class="cov8" title="30">{
+                c.Command = &amp;cobra.Command{
+                        Use:   commandNameXdoc,
+                        Short: "执行云文档的相关操作(如:导出)",
+                        Long:  logo(),
+                        Example: `【在程序目录生成config.yaml】
+./xdoc -g
+./xdoc --generate-config
+【使用程序目录的config.yaml导出文档(需要设置相关enabled值为true)】
+./xdoc export
+【指定配置文件导出文档(需要设置相关enabled值为true)】
+./xdoc export --config ./local.yaml
+【指定命令行参数执行飞书导出】
+./xdoc export feishu --help
+./xdoc export feishu --app-id cli_xxx --app-secret yyy --dir /tmp/docs --urls url1,url2...`,
+                        Version:           version,
+                        DisableAutoGenTag: true,
+                        CompletionOptions: cobra.CompletionOptions{
+                                HiddenDefaultCmd: true,
+                        },
+                        PersistentPreRunE: c.PersistentPreRunE,
+                        RunE:              doNothing,
+                        SilenceErrors:     true, // 禁用默认的错误输出，转为自己打印，子命令会遵循这个配置
+                }
+                c.SetVersionTemplate(fmt.Sprintf(`program: xdoc
+version: {{.Version}}
+git: %s
+built by: %s
+built at: %s`, gitRev, builtBy, builtAt))
+                c.SetOut(os.Stdout) // 子命令如果不覆盖，则会递归到根命令取到这个配置
+        }</span>
+        <span class="cov8" title="33">c.vip = vip
+        c.args = args</span>
+}
+
+func logo() string <span class="cov8" title="30">{
+        header := pterm.DefaultHeader.WithMargin(8).
+                WithBackgroundStyle(pterm.NewStyle(pterm.BgLightBlue)).
+                WithTextStyle(pterm.NewStyle(pterm.FgLightWhite)).
+                Sprint("嗯? 导出你的云文档吧...")
+        logo := pterm.FgLightGreen.Sprint(`
+    ██╗  ██╗██████╗  ██████╗  ██████╗
+    ╚██╗██╔╝██╔══██╗██╔═══██╗██╔════╝
+     ╚███╔╝ ██║  ██║██║   ██║██║     
+     ██╔██╗ ██║  ██║██║   ██║██║     
+    ██╔╝ ██╗██████╔╝╚██████╔╝╚██████╗
+    ╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚═════╝
+`)
+        tips := tips("Go", "Find more information at:", "github.com/acyumi/xdoc", "https://github.com/acyumi/xdoc")
+        return fmt.Sprintf("\n%s%s\n%s\n", header, logo, tips)
+}</span>
+
+func tips(prefix, middle, text, url string) string <span class="cov8" title="32">{
+        pterm.Info.Prefix = pterm.Prefix{
+                Text:  prefix,
+                Style: pterm.NewStyle(pterm.BgBlue, pterm.FgLightWhite),
+        }
+        link := termlink.ColorLink(text, url, "italic green")
+        return pterm.Info.Sprintf("%s %s", middle, link)
+}</span>
+
+func (c *XdocCommand) bind() error <span class="cov7" title="29">{
+        // 添加 --config 参数
+        persistentFlags := c.PersistentFlags()
+        // 先尝试从命令行中读取 --config 参数，取不到再取默认路径上的配置文件具体看下面的loadConfig函数
+        persistentFlags.String(flagNameConfig, "", `指定配置文件(默认使用./config.yaml), 
+配置文件的参数可覆盖, 
+优先级: 命令行参数 &gt; 环境变量 &gt; 配置文件 &gt; 默认值`)
+        persistentFlags.BoolP(flagNameGenerateConfig, "g", false, "是否在程序目录生成config.yaml")
+        persistentFlags.BoolP(flagNameQuitAutomatically, "q", false, "是否在程序跑完后自动退出")
+        persistentFlags.BoolP(flagNameVerbose, "V", false, "是否显示详细日志")
+        // 绑定 Viper
+        // 反复测试发现目前版本的BindPFlags正常使用下不会报错，所以这里直接吃掉错误
+        _ = c.vip.BindPFlags(persistentFlags)
+        // 设置环境变量前缀
+        c.vip.SetEnvPrefix(strings.ToUpper(commandNameXdoc))
+        // 自动绑定环境变量（将点替换为下划线，如 "export.feishu.app-id" -&gt; "XDOC_EXPORT_FEISHU_APP_ID"）
+        c.vip.AutomaticEnv()
+        c.vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+        // 这里只做绑定，不读取配置，因为此时可能还未设置环境变量、命令行参数，放到PersistentPreRunE中读取
+        return nil
+}</span>
+
+func (c *XdocCommand) get() *cobra.Command <span class="cov10" title="76">{
+        return c.Command
+}</span>
+
+func (c *XdocCommand) children() []command <span class="cov3" title="4">{
+        // 这里children()只在初始化时调用一次，所以可以不缓存起来
+        return []command{
+                &amp;exportCommand{},
+        }
+}</span>
+
+func (c *XdocCommand) exec() error <span class="cov5" title="9">{
+        return nil
+}</span>
+
+// PersistentPreRunE 实现全部命令支持生成配置文件。
+func (c *XdocCommand) PersistentPreRunE(cmd *cobra.Command, _ []string) error <span class="cov7" title="26">{
+        err := c.loadConfig()
+        if err != nil </span><span class="cov3" title="3">{
+                return oops.Wrap(err)
+        }</span>
+        // 最后再按优先级从viper中取出配置值
+        <span class="cov7" title="23">c.args.Verbose = c.vip.GetBool(flagNameVerbose)
+        c.args.GenerateConfig = c.vip.GetBool(flagNameGenerateConfig)
+        c.args.QuitAutomatically = c.vip.GetBool(flagNameQuitAutomatically)
+        if !c.args.GenerateConfig </span><span class="cov7" title="19">{
+                // 如果是根命令，则打印 logo 和 帮助信息
+                if c.Command == cmd </span><span class="cov3" title="4">{
+                        return pflag.ErrHelp
+                }</span>
+                // 如果不是，则返回nil，继续子命令的正常执行
+                <span class="cov6" title="15">return nil</span>
+        }
+        // 生成配置文件
+        <span class="cov3" title="4">exePath, err := app.Executable()
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrapf(err, "获取程序所在目录失败")
+        }</span>
+        <span class="cov3" title="3">exeDir := filepath.Dir(exePath)
+        configPath := filepath.Join(exeDir, "config.yaml")
+        // TODO 检查配置文件是否存在，提示是否覆盖
+        // TODO 支持配合--output来指定目录和文件名存放
+        err = app.Fs.WriteFile(configPath, []byte(configTemplate), 0644)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        <span class="cov2" title="2">msg := tips("OK", "配置文件已生成:", "config.yaml", configPath)
+        app.Fprintf(c.Command.OutOrStdout(), "\n%s\n\n", msg)
+        // 覆盖子命令的执行操作，仅生成配置文件，让程序直接结束
+        cmd.RunE = doNothing
+        return nil</span>
+}
+
+// doNothing 忽略命令执行。
+func doNothing(_ *cobra.Command, _ []string) error <span class="cov2" title="2">{
+        return nil
+}</span>
+
+func (c *XdocCommand) loadConfig() (err error) <span class="cov7" title="26">{
+        err = loadConfigFromFile(c.vip, c.args)
+        if err != nil </span><span class="cov7" title="18">{
+                var oe oops.OopsError
+                if ok := errors.As(err, &amp;oe); !ok || oe.Code() != "continue" </span><span class="cov3" title="3">{
+                        return oops.Wrapf(err, "加载配置文件失败")
+                }</span>
+                // 不从c.args中取值，尝试从c.vip中取
+                <span class="cov6" title="15">if c.vip.GetBool(flagNameVerbose) </span><span class="cov2" title="2">{
+                        app.Fprintln(c.Command.OutOrStdout(), oe.Error())
+                }</span>
+        }
+        <span class="cov7" title="23">return nil</span>
+}
+
+func loadConfigFromFile(vip *viper.Viper, args *argument.Args) error <span class="cov8" title="31">{
+        // 如果指定了 --config 参数，则使用指定的配置文件
+        configFile := vip.GetString(flagNameConfig)
+        if configFile != "" </span><span class="cov6" title="13">{
+                vip.SetConfigFile(configFile)
+                args.ConfigFile = configFile
+        }</span> else<span class="cov7" title="18"> {
+                // 默认从程序所在目录读取配置文件
+                exePath, err := app.Executable()
+                if err != nil </span><span class="cov2" title="2">{
+                        return oops.Wrapf(err, "获取程序所在目录失败")
+                }</span>
+                <span class="cov6" title="16">exeDir := filepath.Dir(exePath)
+                vip.AddConfigPath(exeDir)         // 添加程序所在目录为配置文件搜索路径
+                vip.SetConfigName(flagNameConfig) // 配置文件名称（不带扩展名）
+                vip.SetConfigType("yaml")         // 配置文件类型
+                args.ConfigFile = filepath.Join(exeDir, flagNameConfig+".yaml")</span>
+        }
+        // 读取配置文件
+        <span class="cov7" title="29">if err := vip.ReadInConfig(); err != nil </span><span class="cov7" title="19">{
+                var cfnfe viper.ConfigFileNotFoundError
+                if ok := errors.As(err, &amp;cfnfe); ok </span><span class="cov6" title="13">{
+                        // 配置文件不存在，忽略错误
+                        return oops.Code("continue").New("未找到配置文件, 将使用命令行参数，尝试使用命令行参数继续执行")
+                }</span>
+                <span class="cov4" title="6">pathErr := &amp;fs.PathError{}
+                if ok := errors.As(err, &amp;pathErr); ok </span><span class="cov3" title="3">{
+                        return oops.Code("continue").New("请检查配置文件权限，或者指定其他位置的配置文件，尝试使用命令行参数继续执行")
+                }</span>
+                // 其他错误
+                <span class="cov3" title="3">return oops.Wrap(err)</span>
+        }
+        <span class="cov5" title="10">vip.Set(viperKeyGotConfigFile, true)
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package app
+
+import (
+        "encoding/json"
+        "fmt"
+        "io"
+        "os"
+        "time"
+
+        "github.com/spf13/afero"
+        "github.com/spf13/viper"
+)
+
+var (
+        MarshalIndent = json.MarshalIndent
+        Executable    = os.Executable
+
+        Fs    = &amp;afero.Afero{Fs: afero.NewOsFs()}
+        Sleep = func(duration time.Duration) <span class="cov8" title="1">{ time.Sleep(duration) }</span> // 睡眠等待函数
+)
+
+func NewViper() *viper.Viper <span class="cov8" title="1">{
+        vip := viper.New()
+        vip.SetFs(Fs)
+        return vip
+}</span>
+
+func Fprintln(out io.Writer, a ...any) <span class="cov8" title="1">{
+        _, _ = fmt.Fprintln(out, a...)
+}</span>
+
+func Fprint(out io.Writer, a ...any) <span class="cov8" title="1">{
+        _, _ = fmt.Fprint(out, a...)
+}</span>
+
+func Fprintf(out io.Writer, format string, a ...any) <span class="cov8" title="1">{
+        _, _ = fmt.Fprintf(out, format, a...)
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package argument
+
+import (
+        "time"
+)
+
+// Args 程序参数，优先级：命令行参数 &gt; 环境变量 &gt; 配置文件 &gt; 默认值。
+type Args struct {
+        StartTime time.Time // 程序开始时间
+
+        ConfigFile        string // 用于存储 --config 参数的值
+        Verbose           bool   // 是否显示详细日志
+        GenerateConfig    bool   // 是否在程序目录生成config.yaml
+        QuitAutomatically bool   // 是否在程序跑完后自动退出
+}
+
+func (a Args) Validate() error <span class="cov8" title="1">{
+        // TODO
+        return nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "fmt"
+        "strings"
+
+        validation "github.com/go-ozzo/ozzo-validation"
+        "github.com/samber/oops"
+
+        "github.com/acyumi/xdoc/component/argument"
+        "github.com/acyumi/xdoc/component/constant"
+)
+
+type Args struct {
+        *argument.Args
+        Enabled        bool                                  // 是否启用
+        AppID          string                                // 应用ID
+        AppSecret      string                                // 应用密钥
+        DocURLs        []string                              // 文档地址
+        SaveDir        string                                // 文档存放目录(本地)
+        FileExtensions map[constant.DocType]constant.FileExt // 文档扩展名映射, 用于指定文档下载后的文件类型
+        ListOnly       bool                                  // 是否只列出云文档信息不进行导出下载
+}
+
+func (a Args) Validate() error <span class="cov7" title="7">{
+        return oops.Code("InvalidArgument").Wrap(
+                validation.ValidateStruct(&amp;a,
+                        validation.Field(&amp;a.AppID, validation.Required.Error("app-id是必需参数")),
+                        validation.Field(&amp;a.AppSecret, validation.Required.Error("app-secret是必需参数")),
+                        validation.Field(&amp;a.DocURLs, validation.Required.Error("urls是必需参数")),
+                        validation.Field(&amp;a.SaveDir, validation.Required.Error("dir是必需参数")),
+                ))
+}</span>
+
+func (a *Args) SetFileExtensions(fes map[string]string) <span class="cov4" title="3">{
+        if a.FileExtensions == nil </span><span class="cov4" title="3">{
+                a.FileExtensions = map[constant.DocType]constant.FileExt{}
+        }</span>
+        <span class="cov4" title="3">for k, v := range fes </span><span class="cov4" title="3">{
+                a.FileExtensions[constant.DocType(k)] = constant.FileExt(v)
+        }</span>
+}
+
+func (a *Args) DesensitizeSlice(str ...string) (res []string) <span class="cov3" title="2">{
+        for _, s := range str </span><span class="cov5" title="4">{
+                s = a.Desensitize(s)
+                res = append(res, s)
+        }</span>
+        <span class="cov3" title="2">return res</span>
+}
+
+func (a *Args) Desensitize(str string) string <span class="cov10" title="14">{
+        if a.Verbose </span><span class="cov7" title="7">{
+                return str
+        }</span>
+        <span class="cov7" title="7">if len(str) &lt; 4 </span><span class="cov3" title="2">{
+                return str
+        }</span>
+        <span class="cov6" title="5">if strings.Contains(str, "http://") || strings.Contains(str, "https://") </span><span class="cov5" title="4">{
+                // 将域名脱敏
+                // https://sample.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe
+                // -&gt; https://sam***.feishu.cn/wiki/sZdeQp3m4nFGzwqR5vx4vZksMoe
+                split := strings.Split(str, "/")
+                http := split[0]
+                host := split[2]
+                if hostSplit := strings.Split(host, "."); len(hostSplit[0]) &gt; 3 </span><span class="cov5" title="4">{
+                        hostSplit[0] = hostSplit[0][0:3] + strings.Repeat("*", len(hostSplit[0])-3)
+                        host = strings.Join(hostSplit, ".")
+                }</span>
+                <span class="cov5" title="4">var middle string
+                if len(split) &lt; 6 </span><span class="cov1" title="1">{
+                        middle = split[3]
+                }</span> else<span class="cov4" title="3"> {
+                        middle = strings.Join(split[3:len(split)-1], "/")
+                }</span>
+                <span class="cov5" title="4">token := split[len(split)-1]
+                return fmt.Sprintf("%s//%s/%s/%s", http, host, middle, token)</span>
+        }
+        <span class="cov1" title="1">return str[0:4] + strings.Repeat("*", len(str)-4)</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "context"
+        "fmt"
+        "os"
+        "path/filepath"
+        "time"
+
+        validation "github.com/go-ozzo/ozzo-validation"
+        lark "github.com/larksuite/oapi-sdk-go/v3"
+        larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+        larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
+        larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
+        "github.com/samber/oops"
+        "github.com/xlab/treeprint"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/cloud"
+        "github.com/acyumi/xdoc/component/constant"
+        "github.com/acyumi/xdoc/component/progress"
+)
+
+type ClientImpl struct {
+        *lark.Client
+        Args        *Args
+        TaskCreator func(args *Args, docs []*DocumentNode) cloud.Task
+}
+
+func NewClient(args *Args) cloud.Client[*Args] <span class="cov7" title="21">{
+        var c ClientImpl
+        c.SetArgs(args)
+        return &amp;c
+}</span>
+
+func (c *ClientImpl) SetArgs(args *Args) <span class="cov7" title="22">{
+        c.Client = lark.NewClient(args.AppID, args.AppSecret)
+        c.Args = args
+}</span>
+
+func (c *ClientImpl) GetArgs() *Args <span class="cov6" title="14">{
+        return c.Args
+}</span>
+
+func (c ClientImpl) Validate() error <span class="cov3" title="3">{
+        return oops.Code("InvalidArgument").Wrap(
+                validation.ValidateStruct(&amp;c,
+                        validation.Field(&amp;c.Client, validation.Required),
+                        validation.Field(&amp;c.Args, validation.Required),
+                ))
+}</span>
+
+func (c *ClientImpl) DownloadDocuments(docSources []*cloud.DocumentSource) error <span class="cov6" title="13">{
+        fmt.Println("阶段1: 读取飞书云文档信息")
+        fmt.Println("--------------------------")
+        var dns []*DocumentNode
+        for _, ds := range docSources </span><span class="cov6" title="13">{
+                dn, err := c.QueryDocuments(ds.Type, ds.Token)
+                if err != nil </span><span class="cov5" title="8">{
+                        return oops.Wrap(err)
+                }</span>
+                <span class="cov4" title="5">dns = append(dns, dn)</span>
+        }
+        // 去重，可能dns中的树是互相包含的关系
+        <span class="cov4" title="5">dns = deduplication(dns)
+
+        // 将查询到的文档树信息保存到文件中
+        // 创建目录
+        err := app.Fs.MkdirAll(c.Args.SaveDir, 0o755)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        // 将文档树信息保存到document-tree.json文件中
+        <span class="cov3" title="4">filePath := filepath.Join(c.Args.SaveDir, "document-tree.json")
+        diBytes, err := app.MarshalIndent(dns, "", "  ")
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        <span class="cov3" title="3">err = app.Fs.WriteFile(filePath, diBytes, 0o644)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrapf(err, "写入文件失败")
+        }</span>
+
+        <span class="cov2" title="2">fmt.Println("预计将目录或文件保存如下:")
+        tree := treeprint.NewWithRoot(c.Args.SaveDir)
+        totalCount, canDownloadCount := printTree(os.Stdout, tree, dns, 0, 0)
+        fmt.Printf("\n查询总数量: %d, 可下载文档数量: %d\n", totalCount, canDownloadCount)
+        fmt.Println("--------------------------")
+        fmt.Printf("阶段1, 耗时: %s\n", time.Since(c.Args.StartTime).String())
+        fmt.Println("----------------------------------------------")
+        if c.Args.ListOnly </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov1" title="1">task := c.CreateTask(dns, progress.NewProgram)
+        return doExportAndDownload(task)</span>
+}
+
+func (c *ClientImpl) QueryDocuments(typ, token string) (dn *DocumentNode, err error) <span class="cov6" title="13">{
+        switch typ </span>{
+        case "/wiki":<span class="cov1" title="1">
+                fmt.Printf("飞书云文档源: 知识库, 类型: %s, token: %s\n", typ, token)
+                dn, err = c.QueryWikiDocuments(token)</span>
+        case "/wiki/settings":<span class="cov4" title="6">
+                fmt.Printf("飞书云文档源: 知识库, 类型: %s, token: %s\n", typ, token)
+                dn, err = c.QueryWikiSpaceDocuments(token)</span>
+        case "/drive/folder", "/docs", "/docx", "/sheets", "/file":<span class="cov4" title="5">
+                fmt.Printf("飞书云文档源: 云空间, 类型: %s, token: %s\n", typ, token)
+                var docType constant.DocType
+                switch typ </span>{
+                case "/docs":<span class="cov1" title="1">
+                        docType = constant.DocTypeDoc</span>
+                case "/docx":<span class="cov1" title="1">
+                        docType = constant.DocTypeDocx</span>
+                case "/sheets":<span class="cov1" title="1">
+                        docType = constant.DocTypeSheet</span>
+                case "/file":<span class="cov1" title="1">
+                        docType = constant.DocTypeFile</span>
+                default:<span class="cov1" title="1">
+                        // "/drive/folder"
+                        docType = constant.DocTypeFolder</span>
+                }
+                <span class="cov4" title="5">dn, err = c.QueryDriveDocuments(docType, token)</span>
+        default:<span class="cov1" title="1">
+                err = oops.Code("InvalidArgument").Errorf("不支持的飞书云文档类型: %s\n", typ)</span>
+        }
+        <span class="cov6" title="13">return dn, err</span>
+}
+
+func (c *ClientImpl) CreateTask(docs []*DocumentNode, programConstructor func(progress.Stats) progress.IProgram) cloud.Task <span class="cov3" title="3">{
+        if c.TaskCreator != nil </span><span class="cov2" title="2">{
+                return c.TaskCreator(c.Args, docs)
+        }</span>
+        <span class="cov1" title="1">return &amp;TaskImpl{Client: c, Docs: docs, ProgramConstructor: programConstructor}</span>
+}
+
+func checkResp[R error](resp R, err error) (R, error) <span class="cov10" title="75">{
+        if err != nil </span><span class="cov1" title="1">{
+                return resp, err
+        }</span>
+        <span class="cov9" title="74">r, ok := any(resp).(interface{ Success() bool })
+        if !ok </span><span class="cov1" title="1">{
+                return resp, nil
+        }</span>
+        <span class="cov9" title="73">if !r.Success() </span><span class="cov7" title="25">{
+                codeError := getCodeError(resp)
+                if codeError == nil </span><span class="cov1" title="1">{
+                        return resp, nil
+                }</span>
+                <span class="cov7" title="24">return resp, oops.Errorf("logId: %s, error response: \n%s", getLogID(resp), larkcore.Prettify(codeError))</span>
+        }
+        <span class="cov9" title="48">return resp, nil</span>
+}
+
+// getLogID 获取错误日志ID。
+func getLogID(err error) string <span class="cov8" title="32">{
+        r, ok := err.(interface{ RequestId() string })
+        if !ok </span><span class="cov2" title="2">{
+                return ""
+        }</span>
+        <span class="cov8" title="30">logID := r.RequestId()
+        // 渲染为链接，方便查看分析报错原因
+        logID = progress.URLStyleRender(fmt.Sprintf("https://open.feishu.cn/search?q=%s", logID))
+        return logID</span>
+}
+
+// DriveBatchQuery 批量查询文件元信息。
+func (c *ClientImpl) DriveBatchQuery(ctx context.Context, req *larkdrive.BatchQueryMetaReq, options ...larkcore.RequestOptionFunc) (*larkdrive.BatchQueryMetaResp, error) <span class="cov6" title="12">{
+        resp, err := c.Drive.V1.Meta.BatchQuery(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+// DriveList 获取文件夹中的文件清单。
+func (c *ClientImpl) DriveList(ctx context.Context, req *larkdrive.ListFileReq, options ...larkcore.RequestOptionFunc) (*larkdrive.ListFileResp, error) <span class="cov6" title="13">{
+        resp, err := c.Drive.V1.File.List(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+func (c *ClientImpl) DriveDownload(ctx context.Context, req *larkdrive.DownloadFileReq, options ...larkcore.RequestOptionFunc) (*larkdrive.DownloadFileResp, error) <span class="cov1" title="1">{
+        resp, err := c.Drive.V1.File.Download(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+func (c *ClientImpl) WikiGetNode(ctx context.Context, req *larkwiki.GetNodeSpaceReq, options ...larkcore.RequestOptionFunc) (*larkwiki.GetNodeSpaceResp, error) <span class="cov4" title="6">{
+        resp, err := c.Wiki.V2.Space.GetNode(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+func (c *ClientImpl) WikiGetSpace(ctx context.Context, req *larkwiki.GetSpaceReq, options ...larkcore.RequestOptionFunc) (*larkwiki.GetSpaceResp, error) <span class="cov5" title="11">{
+        resp, err := c.Wiki.V2.Space.Get(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+func (c *ClientImpl) WikiNodeList(ctx context.Context, req *larkwiki.ListSpaceNodeReq, options ...larkcore.RequestOptionFunc) (*larkwiki.ListSpaceNodeResp, error) <span class="cov7" title="21">{
+        resp, err := c.Wiki.V2.SpaceNode.List(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+func (c *ClientImpl) ExportCreate(ctx context.Context, req *larkdrive.CreateExportTaskReq, options ...larkcore.RequestOptionFunc) (*larkdrive.CreateExportTaskResp, error) <span class="cov1" title="1">{
+        resp, err := c.Drive.V1.ExportTask.Create(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+func (c *ClientImpl) ExportGet(ctx context.Context, req *larkdrive.GetExportTaskReq, options ...larkcore.RequestOptionFunc) (*larkdrive.GetExportTaskResp, error) <span class="cov1" title="1">{
+        resp, err := c.Drive.V1.ExportTask.Get(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+
+func (c *ClientImpl) ExportDownload(ctx context.Context, req *larkdrive.DownloadExportTaskReq, options ...larkcore.RequestOptionFunc) (*larkdrive.DownloadExportTaskResp, error) <span class="cov1" title="1">{
+        resp, err := c.Drive.V1.ExportTask.Download(ctx, req, options...)
+        return checkResp(resp, err)
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "reflect"
+        "time"
+
+        "github.com/cenkalti/backoff/v5"
+        larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+)
+
+var (
+        initBackOff     = initExponentialBackOff
+        maxAttemptCount = 5 // 最大尝试次数，注意不是重试次数（有失败才有重试，第一次就成功表示没有重试）
+        codeErrorType   = reflect.TypeOf(larkcore.CodeError{})
+)
+
+func initExponentialBackOff(ebo *backoff.ExponentialBackOff) <span class="cov8" title="36">{
+        ebo.InitialInterval = time.Second
+        ebo.Multiplier = 2.0
+        ebo.MaxInterval = 5 * time.Second
+        ebo.RandomizationFactor = 0.2
+}</span>
+
+// SendWithRetry 飞书上层重试客户端。
+// 本来想做 RetryHttpClient 的，实现 larkcore.HttpClient
+// 但是要自己解析 http.Response 的内容反序列化得到内容再判断是否需要重试
+// 想了想还是算了，换成上层重试。
+func SendWithRetry[R any](operation func(count int) (R, error)) (resp R, err error) <span class="cov9" title="88">{
+        // 重试策略
+        // backoff.NewTicker(ebo)中会调用ebo的reset方法，如果共用ebo则在并发时会出发 DATA RACE
+        // 所以这里每调用都构建新实例，不宜共用
+        ebo := backoff.NewExponentialBackOff()
+        initBackOff(ebo)
+        ticker := backoff.NewTicker(ebo)
+        defer ticker.Stop()
+
+        // Ticks will continue to arrive when the previous operation is still running,
+        // so operations that take a while to fail could run in quick succession.
+        var count int
+        for range ticker.C </span><span class="cov10" title="96">{
+                count++
+                resp, err = operation(count)
+                // 飞书SDK从代码层面报错，那就是有问题了，不需要重试，如果是合适的响应错误，那就重试
+                if err != nil </span><span class="cov7" title="30">{
+                        break</span>
+                }
+                <span class="cov9" title="66">codeError := getCodeError(resp)
+                if codeError == nil </span><span class="cov3" title="4">{
+                        break</span>
+                }
+                <span class="cov9" title="62">switch codeError.Code </span>{
+                // https://open.feishu.cn/document/server-docs/api-call-guide/frequency-control
+                // https://open.feishu.cn/document/server-docs/api-call-guide/generic-error-code
+                case 99991400, 11232:<span class="cov5" title="11">
+                        if count &gt;= maxAttemptCount </span><span class="cov3" title="3">{
+                                return resp, err
+                        }</span>
+                        <span class="cov5" title="8">continue</span>
+                default:<span class="cov8" title="51">
+                        return resp, err</span>
+                }
+        }
+        <span class="cov7" title="34">return resp, err</span>
+}
+
+func getCodeError[R any](resp R) *larkcore.CodeError <span class="cov9" title="91">{
+        val := reflect.Indirect(reflect.ValueOf(resp))
+        if val.Kind() != reflect.Struct </span><span class="cov2" title="2">{
+                return nil
+        }</span>
+        <span class="cov9" title="89">ceField := val.FieldByName("CodeError")
+        if !ceField.IsValid() || ceField.Type() != codeErrorType </span><span class="cov3" title="3">{
+                return nil
+        }</span>
+        <span class="cov9" title="86">codeError := ceField.Interface().(larkcore.CodeError)
+        return &amp;codeError</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "fmt"
+        "io"
+        "path/filepath"
+        "strings"
+        "time"
+
+        larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
+        "github.com/samber/oops"
+        "github.com/xlab/treeprint"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/cloud"
+        "github.com/acyumi/xdoc/component/constant"
+)
+
+type DocumentInfo struct {
+        Name          string           `json:"name"          yaml:"name" bson:"name" gorm:"dddd"` // 文档名
+        Type          constant.DocType `json:"type"          yaml:"type" bson:"name" gorm:"dddd"` // 文档类型
+        Token         string           `json:"token"`                                             // 文档token
+        FileExtension constant.FileExt `json:"fileExtension"`                                     // 文件扩展名，如果是目录type=folder，则为空
+        CanDownload   bool             `json:"canDownload"`                                       // 是否可下载
+
+        DownloadDirectly bool   `json:"downloadDirectly"` // 是否使用【下载文件】API直接下载
+        URL              string `json:"url"`              // 在浏览器中查看的链接
+
+        NodeToken string `json:"nodeToken"` // 知识节点ID
+        SpaceID   string `json:"spaceId"`   // 知识空间ID
+
+        FilePath string // 文件保存路径
+}
+
+type DocumentNode struct {
+        DocumentInfo `json:",inline"`
+        Children     []*DocumentNode `json:"children"`
+}
+
+func (di *DocumentInfo) GetFileName() string <span class="cov5" title="8">{
+        return fmt.Sprintf("%s.%s", di.Name, di.FileExtension)
+}</span>
+
+type exportResult struct {
+        *DocumentInfo
+        result *larkdrive.ExportTask // 如果 DocumentInfo.DownloadDirectly=true，则 result 为空
+}
+
+func cleanName(name string) string <span class="cov7" title="24">{
+        // windows目录或文件名不允许使用的字符比其他系统更多
+        // windows目录或文件名不允许使用这些字符: \/:*?"&lt;&gt;|
+        name = strings.ReplaceAll(name, `\`, "_")
+        name = strings.ReplaceAll(name, "/", "_")
+        name = strings.ReplaceAll(name, ":", "_")
+        name = strings.ReplaceAll(name, "*", "_")
+        name = strings.ReplaceAll(name, "?", "_")
+        name = strings.ReplaceAll(name, `"`, "_")
+        name = strings.ReplaceAll(name, "&lt;", "_")
+        name = strings.ReplaceAll(name, "&gt;", "_")
+        name = strings.ReplaceAll(name, "|", "_")
+        return name
+}</span>
+
+func setFileExtension(dn *DocumentNode, args *Args) <span class="cov8" title="30">{
+        // 如果是file，则需要通过文件名获取文件类型，再继续下成的switch处理
+        if dn.Type == constant.DocTypeFile </span><span class="cov4" title="6">{
+                dn.CanDownload = true
+                dn.DownloadDirectly = true
+                ext := filepath.Ext(dn.Name)
+                if len(ext) &gt; 0 </span><span class="cov3" title="4">{
+                        e := constant.DocType(ext[1:])
+                        switch e </span>{
+                        case constant.DocTypeXlsx, constant.DocTypeXls:<span class="cov1" title="1">
+                                dn.Type = constant.DocTypeSheet</span>
+                        default:<span class="cov3" title="3">
+                                dn.Type = e</span>
+                        }
+                        <span class="cov3" title="4">dn.Name = dn.Name[:len(dn.Name)-len(ext)]</span>
+                }
+        }
+        <span class="cov8" title="30">var setOrDefault = func(def constant.FileExt) </span><span class="cov8" title="30">{
+                dn.FileExtension = args.FileExtensions[dn.Type]
+                if dn.FileExtension == "" </span><span class="cov8" title="27">{
+                        dn.FileExtension = def
+                }</span>
+        }
+        <span class="cov8" title="30">switch dn.Type </span>{
+        // 具体查看支持的类型: https://open.feishu.cn/document/server-docs/docs/drive-v1/export_task/export-user-guide
+        // 目前为四种:
+        // docx：新版飞书文档。支持导出扩展名为 docx 和 pdf 格式的文件。
+        // doc：旧版飞书文档。支持导出扩展名为 docx 和 pdf 的文件。已不推荐使用。
+        // sheet：飞书电子表格。支持导出扩展名为 xlsx 和 csv 的文件。
+        // bitable：飞书多维表格。支持导出扩展名为 xlsx 和 csv 格式的文件。
+        case constant.DocTypeDocx, constant.DocTypeDoc:<span class="cov7" title="20">
+                dn.CanDownload = true
+                setOrDefault(constant.FileExtDocx)</span>
+        case constant.DocTypeBitable, constant.DocTypeSheet:<span class="cov2" title="2">
+                dn.CanDownload = true
+                setOrDefault(constant.FileExtXlsx)</span>
+        default:<span class="cov5" title="8">
+                setOrDefault(constant.FileExt(dn.Type))</span>
+        }
+}
+
+func deduplication(dns []*DocumentNode) (fdns []*DocumentNode) <span class="cov5" title="10">{
+        if len(dns) &lt; 2 </span><span class="cov4" title="6">{
+                return dns
+        }</span>
+        <span class="cov3" title="4">rejectedIndices := map[int]bool{}
+        for i, dni := range dns </span><span class="cov6" title="13">{
+                if rejectedIndices[i] </span><span class="cov3" title="4">{
+                        continue</span>
+                }
+                <span class="cov5" title="9">li := documentNodeToInfoList(dni)
+                for j, dnj := range dns </span><span class="cov8" title="30">{
+                        if rejectedIndices[i] </span><span class="cov3" title="3">{
+                                break</span>
+                        }
+                        <span class="cov8" title="27">if j == i || rejectedIndices[j] </span><span class="cov6" title="16">{
+                                continue</span>
+                        }
+                        <span class="cov6" title="11">for _, ii := range li </span><span class="cov8" title="35">{
+                                // 如果ii与dnj相同，那就是dni树包含了dnj树，则丢弃dnj
+                                if ii.Type == dnj.Type &amp;&amp; ii.Token == dnj.Token </span><span class="cov3" title="4">{
+                                        rejectedIndices[j] = true
+                                        break</span>
+                                }
+                        }
+                        <span class="cov6" title="11">if rejectedIndices[j] </span><span class="cov3" title="4">{
+                                continue</span>
+                        }
+                        <span class="cov5" title="7">lj := documentNodeToInfoList(dnj)
+                        for _, ij := range lj </span><span class="cov7" title="18">{
+                                // 如果ij与dni相同，那就是dnj树包含了dni树，则丢弃dni
+                                if ij.Type == dni.Type &amp;&amp; ij.Token == dni.Token </span><span class="cov3" title="4">{
+                                        rejectedIndices[i] = true
+                                        break</span>
+                                }
+                        }
+                }
+        }
+        <span class="cov3" title="4">for i, dn := range dns </span><span class="cov6" title="13">{
+                if rejectedIndices[i] </span><span class="cov5" title="8">{
+                        continue</span>
+                }
+                <span class="cov4" title="5">fdns = append(fdns, dn)</span>
+        }
+        <span class="cov3" title="4">return fdns</span>
+}
+
+// documentNodeToInfoList 一棵未完整的文档树转为一维列表。
+func documentNodeToInfoList(dn *DocumentNode) []*DocumentInfo <span class="cov10" title="68">{
+        var infoList []*DocumentInfo
+        infoList = append(infoList, &amp;dn.DocumentInfo)
+        for _, child := range dn.Children </span><span class="cov9" title="51">{
+                infoList = append(infoList, documentNodeToInfoList(child)...)
+        }</span>
+        <span class="cov10" title="68">return infoList</span>
+}
+
+// documentNodesToInfoList 多棵完整的文档树转为一维列表。
+func documentNodesToInfoList(dns []*DocumentNode, saveDir string) []*DocumentInfo <span class="cov9" title="43">{
+        var infoList []*DocumentInfo
+        for _, dn := range dns </span><span class="cov8" title="31">{
+                if dn.Type == constant.DocTypeFolder </span><span class="cov6" title="12">{
+                        dn.FilePath = filepath.Join(saveDir, dn.Name)
+                }</span> else<span class="cov7" title="19"> {
+                        dn.FilePath = filepath.Join(saveDir, dn.Name+"."+string(dn.FileExtension))
+                }</span>
+                <span class="cov8" title="31">infoList = append(infoList, &amp;dn.DocumentInfo)
+                infoList = append(infoList, documentNodesToInfoList(dn.Children, filepath.Join(saveDir, dn.Name))...)</span>
+        }
+        <span class="cov9" title="43">return infoList</span>
+}
+
+// 递归打印目录结构及文件名，打印过程中会调整空文件名为"未命名xxxn.xxx"格式
+// tree：需要在调用前构造好传进来，以后也不要想着改造成传nil再在第一次处理时从函数内部构造
+// 返回值：tc: totalCount, cdc: canDownloadCount。
+func printTree(logWriter io.Writer, tree treeprint.Tree, dns []*DocumentNode, totalCount, canDownloadCount int) (tc, cdc int) <span class="cov7" title="17">{
+        if totalCount == 0 </span><span class="cov5" title="7">{
+                root := tree
+                defer func() </span><span class="cov5" title="7">{
+                        app.Fprint(logWriter, root.String())
+                }</span>()
+                <span class="cov5" title="7">app.Fprint(logWriter, "\n")</span>
+        }
+        <span class="cov7" title="17">temp := map[string]int{}
+        for _, child := range dns </span><span class="cov8" title="28">{
+                totalCount++
+                suffix := string(child.FileExtension)
+                if child.CanDownload </span><span class="cov6" title="14">{
+                        canDownloadCount++
+                }</span> else<span class="cov6" title="14"> {
+                        suffix += "（不可下载）"
+                }</span>
+                <span class="cov8" title="28">child.Name = getName(child.Name, child.Type, temp)
+                if len(child.Children) &gt; 0 </span><span class="cov5" title="10">{
+                        if child.Type != constant.DocTypeFolder </span><span class="cov2" title="2">{
+                                tree.AddNode(child.Name + "." + suffix) // 文件
+                        }</span>
+                        <span class="cov5" title="10">branch := tree.AddBranch(child.Name) // 目录
+                        totalCount, canDownloadCount = printTree(logWriter, branch, child.Children, totalCount, canDownloadCount)
+                        continue</span>
+                }
+                <span class="cov7" title="18">if child.Type == constant.DocTypeFolder </span><span class="cov1" title="1">{
+                        tree.AddNode(child.Name) // 目录
+                        continue</span>
+                }
+                <span class="cov7" title="17">tree.AddNode(child.Name + "." + suffix)</span> // 文件
+        }
+        <span class="cov7" title="17">return totalCount, canDownloadCount</span>
+}
+
+func getName(name string, typ constant.DocType, duplicateNameIndexMap map[string]int) string <span class="cov8" title="37">{
+        if name != "" </span><span class="cov8" title="30">{
+                index, ok := duplicateNameIndexMap[name]
+                if !ok </span><span class="cov8" title="29">{
+                        duplicateNameIndexMap[name] = 0
+                        return name
+                }</span>
+                <span class="cov1" title="1">duplicateNameIndexMap[name] = index + 1
+                return fmt.Sprintf("%s%d", name, index+1)</span>
+        }
+        <span class="cov5" title="7">unnamedType := string("[Unnamed]" + typ)
+        unnamedIndex := duplicateNameIndexMap[unnamedType] + 1
+        duplicateNameIndexMap[unnamedType] = unnamedIndex
+        switch typ </span>{
+        case constant.DocTypeDocx:<span class="cov1" title="1">
+                return fmt.Sprintf("未命名新版文档%d", unnamedIndex)</span>
+        case constant.DocTypeDoc:<span class="cov1" title="1">
+                return fmt.Sprintf("未命名旧版文档%d", unnamedIndex)</span>
+        case constant.DocTypeSheet:<span class="cov1" title="1">
+                return fmt.Sprintf("未命名电子表格%d", unnamedIndex)</span>
+        case constant.DocTypeBitable:<span class="cov1" title="1">
+                return fmt.Sprintf("未命名多维表格%d", unnamedIndex)</span>
+        case constant.DocTypeMindNote:<span class="cov1" title="1">
+                return fmt.Sprintf("未命名思维笔记%d", unnamedIndex)</span>
+        case constant.DocTypeSlides:<span class="cov1" title="1">
+                return fmt.Sprintf("未命名幻灯片%d", unnamedIndex)</span>
+        default:<span class="cov1" title="1">
+                return fmt.Sprintf("未命名飞书文档%d", unnamedIndex)</span>
+        }
+}
+
+func doExportAndDownload(task cloud.Task) error <span class="cov3" title="4">{
+        err := task.Validate()
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        <span class="cov3" title="3">defer app.Sleep(time.Second * 2)
+        defer task.Close()
+
+        err = task.Run()
+        return oops.Wrap(err)</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "context"
+
+        larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+        larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
+        "github.com/samber/oops"
+
+        "github.com/acyumi/xdoc/component/constant"
+)
+
+func (c *ClientImpl) QueryDriveDocuments(typ constant.DocType, token string) (*DocumentNode, error) <span class="cov9" title="11">{
+        // 调用【获取文件夹元数据】接口
+        // https://open.feishu.cn/document/server-docs/docs/drive-v1/folder/get-folder-meta
+        // 创建请求对象
+        req := larkdrive.NewBatchQueryMetaReqBuilder().
+                MetaRequest(larkdrive.NewMetaRequestBuilder().
+                        RequestDocs([]*larkdrive.RequestDoc{
+                                larkdrive.NewRequestDocBuilder().
+                                        DocToken(token).
+                                        DocType(string(typ)).
+                                        Build(),
+                        }).
+                        WithUrl(true).
+                        Build()).
+                Build()
+        // 发起请求
+        resp, err := SendWithRetry(func(_ int) (*larkdrive.BatchQueryMetaResp, error) </span><span class="cov9" title="11">{
+                return c.DriveBatchQuery(context.Background(), req)
+        }</span>)
+        // 处理错误
+        <span class="cov9" title="11">if err != nil </span><span class="cov8" title="7">{
+                return nil, oops.Wrap(err)
+        }</span>
+        <span class="cov6" title="4">failedList := resp.Data.FailedList
+        if len(failedList) &gt; 0 </span><span class="cov1" title="1">{
+                failed := failedList[0]
+                code := larkcore.IntValue(failed.Code)
+                token := larkcore.StringValue(failed.Token)
+                return nil, oops.Errorf("获取文件夹元数据失败: code: %d, token: %s", code, token)
+        }</span>
+        <span class="cov4" title="3">meta := resp.Data.Metas[0]
+        dn := &amp;DocumentNode{
+                DocumentInfo: DocumentInfo{
+                        Name:  larkcore.StringValue(meta.Title),
+                        Type:  typ,
+                        Token: token,
+                },
+        }
+        if typ == constant.DocTypeFolder </span><span class="cov3" title="2">{
+                err = c.fetchDriveDescendant(dn, true, token, "")
+                if err != nil </span><span class="cov1" title="1">{
+                        return nil, oops.Wrap(err)
+                }</span>
+        } else<span class="cov1" title="1"> {
+                setFileExtension(dn, c.Args)
+        }</span>
+
+        <span class="cov3" title="2">return dn, nil</span>
+}
+
+func (c *ClientImpl) fetchDriveDescendant(dn *DocumentNode, hasChild bool, folderToken, pageToken string) error <span class="cov10" title="12">{
+        if !hasChild </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+        // 调用【获取文件夹中的文件清单】接口
+        // https://open.feishu.cn/document/server-docs/docs/drive-v1/folder/list
+        // 创建请求对象
+        <span class="cov9" title="11">req := larkdrive.NewListFileReqBuilder().
+                FolderToken(folderToken).
+                PageToken(pageToken).
+                OrderBy(`EditedTime`).
+                Direction(`DESC`).
+                PageSize(200).
+                Build()
+        // 发起请求
+        resp, err := SendWithRetry(func(_ int) (*larkdrive.ListFileResp, error) </span><span class="cov9" title="11">{
+                return c.DriveList(context.Background(), req)
+        }</span>)
+        // 处理错误
+        <span class="cov9" title="11">if err != nil </span><span class="cov4" title="3">{
+                return oops.Wrap(err)
+        }</span>
+
+        // 查到的子节点添加到doc中，然后再递归查询子节点
+        <span class="cov8" title="8">for _, file := range resp.Data.Files </span><span class="cov6" title="5">{
+                child := c.fileToDocumentNode(file)
+                dn.Children = append(dn.Children, child)
+                // 如果类型是文件夹那就递归遍历
+                if larkcore.StringValue(file.Type) != string(constant.DocTypeFolder) </span><span class="cov3" title="2">{
+                        continue</span>
+                }
+                <span class="cov4" title="3">err = c.fetchDriveDescendant(child, true, larkcore.StringValue(file.Token), "")
+                if err != nil </span><span class="cov1" title="1">{
+                        return oops.Wrap(err)
+                }</span>
+        }
+
+        <span class="cov8" title="7">if larkcore.BoolValue(resp.Data.HasMore) </span><span class="cov3" title="2">{
+                pageToken = larkcore.StringValue(resp.Data.NextPageToken)
+                err = c.fetchDriveDescendant(dn, true, folderToken, pageToken)
+                if err != nil </span><span class="cov1" title="1">{
+                        return oops.Wrap(err)
+                }</span>
+        }
+
+        <span class="cov7" title="6">return nil</span>
+}
+
+func (c *ClientImpl) fileToDocumentNode(file *larkdrive.File) *DocumentNode <span class="cov8" title="7">{
+        var dn = &amp;DocumentNode{}
+        // 先判断文件夹类型，看是否可以下载，然后再判断有没有子节点
+        dn.Name = larkcore.StringValue(file.Name)
+        dn.Name = cleanName(dn.Name)
+        dn.URL = larkcore.StringValue(file.Url)
+        // 如果是快捷方式，则获取快捷方式的目标文件
+        dn.Type = constant.DocType(larkcore.StringValue(file.Type))
+        if dn.Type == constant.DocTypeShortcut </span><span class="cov1" title="1">{
+                dn.Type = constant.DocType(larkcore.StringValue(file.ShortcutInfo.TargetType))
+                dn.Token = larkcore.StringValue(file.ShortcutInfo.TargetToken)
+        }</span> else<span class="cov7" title="6"> {
+                dn.Token = larkcore.StringValue(file.Token)
+        }</span>
+        <span class="cov8" title="7">setFileExtension(dn, c.Args)
+        return dn</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "context"
+        "time"
+
+        larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+        larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
+        "github.com/samber/oops"
+
+        "github.com/acyumi/xdoc/component/constant"
+)
+
+func (c *ClientImpl) QueryWikiDocuments(token string) (*DocumentNode, error) <span class="cov5" title="5">{
+        // 创建请求对象
+        req := larkwiki.NewGetNodeSpaceReqBuilder().Token(token).ObjType(`wiki`).Build()
+        // 发起请求
+        resp, err := SendWithRetry(func(_ int) (*larkwiki.GetNodeSpaceResp, error) </span><span class="cov5" title="5">{
+                return c.WikiGetNode(context.Background(), req)
+        }</span>)
+        // 处理错误
+        <span class="cov5" title="5">if err != nil </span><span class="cov2" title="2">{
+                return nil, oops.Wrap(err)
+        }</span>
+
+        <span class="cov3" title="3">node := resp.Data.Node
+        dn := c.wikiNodeToDocumentNode(node)
+
+        hasChild := larkcore.BoolValue(node.HasChild)
+        err = c.fetchWikiDescendant(dn, hasChild, dn.SpaceID, dn.NodeToken, "")
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, oops.Wrap(err)
+        }</span>
+
+        <span class="cov2" title="2">return dn, nil</span>
+}
+
+func (c *ClientImpl) QueryWikiSpaceDocuments(spaceID string) (*DocumentNode, error) <span class="cov7" title="10">{
+        req := larkwiki.NewGetSpaceReqBuilder().SpaceId(spaceID).Lang(`zh`).Build()
+        // 发起请求
+        resp, err := SendWithRetry(func(_ int) (*larkwiki.GetSpaceResp, error) </span><span class="cov7" title="10">{
+                return c.WikiGetSpace(context.Background(), req)
+        }</span>)
+        // 处理错误
+        <span class="cov7" title="10">if err != nil </span><span class="cov2" title="2">{
+                return nil, oops.Wrap(err)
+        }</span>
+        <span class="cov6" title="8">name := larkcore.StringValue(resp.Data.Space.Name)
+        var dn = &amp;DocumentNode{DocumentInfo: DocumentInfo{Name: name, SpaceID: spaceID, Token: spaceID, Type: constant.DocTypeFolder}}
+        err = c.fetchWikiDescendant(dn, true, dn.SpaceID, dn.NodeToken, "")
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, oops.Wrap(err)
+        }</span>
+
+        <span class="cov6" title="7">return dn, nil</span>
+}
+
+func (c *ClientImpl) fetchWikiDescendant(dn *DocumentNode, hasChild bool,
+        spaceID, parentNodeToken, pageToken string) error <span class="cov10" title="31">{
+        if !hasChild </span><span class="cov7" title="10">{
+                return nil
+        }</span>
+        <span class="cov8" title="21">timeout := time.Minute
+        if time.Since(c.Args.StartTime) &gt; time.Minute </span><span class="cov1" title="1">{
+                return oops.Errorf("获取知识库文档信息超时: %s", timeout.String())
+        }</span>
+        // 调用【获取知识空间子节点列表】接口
+        // https://open.feishu.cn/document/server-docs/docs/wiki-v2/space-node/list
+        // 创建请求对象
+        <span class="cov8" title="20">req := larkwiki.NewListSpaceNodeReqBuilder().
+                SpaceId(spaceID).
+                PageSize(50).
+                PageToken(pageToken).
+                ParentNodeToken(parentNodeToken).
+                Build()
+        // 发起请求
+        resp, err := SendWithRetry(func(_ int) (*larkwiki.ListSpaceNodeResp, error) </span><span class="cov8" title="20">{
+                return c.WikiNodeList(context.Background(), req)
+        }</span>)
+        // 处理错误
+        <span class="cov8" title="20">if err != nil </span><span class="cov4" title="4">{
+                return oops.Wrap(err)
+        }</span>
+
+        // 查到的子节点添加到doc中，然后再递归查询子节点
+        <span class="cov8" title="16">for _, node := range resp.Data.Items </span><span class="cov7" title="11">{
+                // 先判断文档类型，看是否可以下载
+                child := c.wikiNodeToDocumentNode(node)
+                dn.Children = append(dn.Children, child)
+                // 然后再判断有没有子节点
+                hasChild := larkcore.BoolValue(node.HasChild)
+                err = c.fetchWikiDescendant(child, hasChild, spaceID, child.NodeToken, "")
+                if err == nil </span><span class="cov7" title="10">{
+                        continue</span>
+                }
+                <span class="cov1" title="1">return oops.Wrap(err)</span>
+        }
+
+        <span class="cov8" title="15">if larkcore.BoolValue(resp.Data.HasMore) </span><span class="cov2" title="2">{
+                pageToken = larkcore.StringValue(resp.Data.PageToken)
+                err = c.fetchWikiDescendant(dn, true, spaceID, parentNodeToken, pageToken)
+                if err != nil </span><span class="cov1" title="1">{
+                        return oops.Wrap(err)
+                }</span>
+        }
+
+        <span class="cov7" title="14">return nil</span>
+}
+
+func (c *ClientImpl) wikiNodeToDocumentNode(node *larkwiki.Node) *DocumentNode <span class="cov8" title="15">{
+        var dn = &amp;DocumentNode{}
+        dn.Name = larkcore.StringValue(node.Title)
+        dn.Name = cleanName(dn.Name)
+        dn.Type = constant.DocType(larkcore.StringValue(node.ObjType))
+        dn.Token = larkcore.StringValue(node.ObjToken)
+        setFileExtension(dn, c.Args)
+        // 取节点token
+        dn.NodeToken = larkcore.StringValue(node.NodeToken)
+        // 取wiki的知识空间ID
+        dn.SpaceID = larkcore.StringValue(node.SpaceId)
+        return dn
+}</span>
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "context"
+        "io"
+        "math/rand"
+        "strings"
+        "sync/atomic"
+        "time"
+
+        larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+        larkdrive "github.com/larksuite/oapi-sdk-go/v3/service/drive/v1"
+        "github.com/samber/oops"
+        "github.com/spf13/cast"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/progress"
+)
+
+type exporter struct {
+        client    Client            //
+        program   progress.IProgram //
+        completed *atomic.Bool      //
+}
+
+// doExport 创建导出任务。
+func (e *exporter) doExport(di *DocumentInfo) (string, error) <span class="cov6" title="4">{
+        // 发送请求创建导出任务
+        exportTask := larkdrive.NewExportTaskBuilder().
+                FileExtension(string(di.FileExtension)).
+                Token(di.Token).
+                Type(string(di.Type)).
+                Build()
+        req := larkdrive.NewCreateExportTaskReqBuilder().
+                ExportTask(exportTask).
+                Build()
+        req.ExportTask = exportTask
+        resp, err := SendWithRetry(func(count int) (*larkdrive.CreateExportTaskResp, error) </span><span class="cov6" title="4">{
+                e.program.Update(di.FilePath, 0, progress.StatusExporting, "请求%d次", count)
+                return e.client.ExportCreate(context.Background(), req)
+        }</span>)
+        <span class="cov6" title="4">if err != nil </span><span class="cov5" title="3">{
+                if resp != nil &amp;&amp; !resp.Success() </span><span class="cov1" title="1">{
+                        return "", oops.New(toErrMsg(resp, "创建导出任务"))
+                }</span>
+                <span class="cov3" title="2">return "", oops.Wrap(err)</span>
+        }
+        <span class="cov1" title="1">return larkcore.StringValue(resp.Data.Ticket), nil</span>
+}
+
+// checkExport 查询导出任务结果。
+func (e *exporter) checkExport(di *DocumentInfo, ticket string) (*exportResult, progress.Status, error) <span class="cov8" title="6">{
+        for i := 0; i &lt; 5; i++ </span><span class="cov10" title="10">{
+                if e.completed.Load() </span><span class="cov1" title="1">{
+                        return nil, progress.StatusInterrupted, nil
+                }</span>
+                // 发送请求查询导出任务结果
+                <span class="cov9" title="9">req := larkdrive.NewGetExportTaskReqBuilder().Ticket(ticket).Token(di.Token).Build()
+                resp, err := SendWithRetry(func(count int) (*larkdrive.GetExportTaskResp, error) </span><span class="cov9" title="9">{
+                        e.program.Update(di.FilePath, 0.10, progress.StatusExporting, "查询%d次", count)
+                        return e.client.ExportGet(context.Background(), req)
+                }</span>)
+                <span class="cov9" title="9">if err != nil </span><span class="cov3" title="2">{
+                        if resp != nil &amp;&amp; !resp.Success() </span><span class="cov1" title="1">{
+                                return nil, progress.StatusFailed, oops.New(toErrMsg(resp, "查询导出任务结果"))
+                        }</span>
+                        <span class="cov1" title="1">return nil, progress.StatusFailed, oops.Wrap(err)</span>
+                }
+
+                // https://open.feishu.cn/document/server-docs/docs/drive-v1/export_task/get
+                // 0：成功，1：初始化，2：处理中，大于2的其他状态为异常状态
+                <span class="cov8" title="7">result := resp.Data.Result
+                jobStatus := larkcore.IntValue(result.JobStatus)
+                if jobStatus &lt; 1 </span><span class="cov1" title="1">{
+                        return &amp;exportResult{DocumentInfo: di, result: result}, progress.StatusExported, nil
+                }</span>
+                <span class="cov8" title="6">if jobStatus &gt; 2 </span><span class="cov1" title="1">{
+                        jobErrorMsg := larkcore.StringValue(result.JobErrorMsg)
+                        return nil, progress.StatusFailed, oops.New(strings.ReplaceAll(jobErrorMsg, "\n", " "))
+                }</span>
+                <span class="cov7" title="5">e.program.Update(di.FilePath, 0.10, progress.StatusExporting, "等待完成导出任务")
+                // 随机睡眠1到5秒
+                app.Sleep(time.Second * time.Duration(rand.Intn(4)+1))</span>
+        }
+        <span class="cov1" title="1">return nil, progress.StatusFailed, oops.New("经过多次尝试取不到导出任务结果")</span>
+}
+
+// doDownloadExported 下载导出的文件。
+func (e *exporter) doDownloadExported(filePath, fileToken string) (io.Reader, error) <span class="cov5" title="3">{
+        req := larkdrive.NewDownloadExportTaskReqBuilder().FileToken(fileToken).Build()
+        resp, err := SendWithRetry(func(count int) (*larkdrive.DownloadExportTaskResp, error) </span><span class="cov5" title="3">{
+                e.program.Update(filePath, 0.18, progress.StatusDownloading, "请求%d次", count)
+                return e.client.ExportDownload(context.Background(), req)
+        }</span>)
+        <span class="cov5" title="3">if err != nil </span><span class="cov3" title="2">{
+                if resp != nil &amp;&amp; !resp.Success() </span><span class="cov1" title="1">{
+                        return nil, oops.New(toErrMsg(resp, "下载导出文件"))
+                }</span>
+                <span class="cov1" title="1">return nil, oops.Wrap(err)</span>
+        }
+        <span class="cov1" title="1">return resp.File, nil</span>
+}
+
+// doDownloadDirectly 不需要经过导出操作，直接下载文件。
+func (e *exporter) doDownloadDirectly(filePath, fileToken string) (io.Reader, int64, error) <span class="cov5" title="3">{
+        req := larkdrive.NewDownloadFileReqBuilder().FileToken(fileToken).Build()
+        resp, err := SendWithRetry(func(count int) (*larkdrive.DownloadFileResp, error) </span><span class="cov5" title="3">{
+                e.program.Update(filePath, 0.18, progress.StatusDownloading, "请求%d次", count)
+                return e.client.DriveDownload(context.Background(), req)
+        }</span>)
+        <span class="cov5" title="3">if err != nil </span><span class="cov3" title="2">{
+                if resp != nil &amp;&amp; !resp.Success() </span><span class="cov1" title="1">{
+                        return nil, 0, oops.New(toErrMsg(resp, "下载导出文件"))
+                }</span>
+                <span class="cov1" title="1">return nil, 0, oops.Wrap(err)</span>
+        }
+        <span class="cov1" title="1">contentLength := resp.Header.Get("Content-Length")
+        return resp.File, cast.ToInt64(contentLength), nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package feishu
+
+import (
+        "fmt"
+        "io"
+        "math/rand"
+        "strings"
+        "sync"
+        "sync/atomic"
+        "time"
+
+        teaProgress "github.com/charmbracelet/bubbles/progress"
+        validation "github.com/go-ozzo/ozzo-validation"
+        larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+        "github.com/samber/lo"
+        "github.com/samber/oops"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/progress"
+)
+
+type TaskImpl struct {
+        Client             Client                                 //
+        Docs               []*DocumentNode                        //
+        ProgramConstructor func(progress.Stats) progress.IProgram //
+
+        canDownloadList []*DocumentInfo    //
+        program         progress.IProgram  //
+        countDown       *atomic.Int32      //
+        completed       *atomic.Bool       // 任务整体是否完成（导出+下载）
+        queue           chan *exportResult //
+        wait            chan struct{}      //
+        exporter        IExporter          //
+}
+
+func (t TaskImpl) Validate() (err error) <span class="cov1" title="2">{
+        return oops.Code("InvalidArgument").Wrap(
+                validation.ValidateStruct(&amp;t,
+                        validation.Field(&amp;t.Docs, validation.Required),
+                        validation.Field(&amp;t.Client, validation.Required),
+                        validation.Field(&amp;t.ProgramConstructor, validation.Required),
+                ))
+}</span>
+
+func (t *TaskImpl) Run() (err error) <span class="cov1" title="2">{
+        startTime := time.Now()
+        fmt.Println("阶段2: 下载飞书云文档")
+        fmt.Println("--------------------------")
+        defer func() </span><span class="cov1" title="2">{
+                fmt.Println("--------------------------")
+                fmt.Printf("阶段2, 耗时: %s\n", time.Since(startTime).String())
+        }</span>()
+
+        <span class="cov1" title="2">args := t.Client.GetArgs()
+        // 将树结构转为平铺的列表
+        infoList := documentNodesToInfoList(t.Docs, args.SaveDir)
+
+        // 初始化必要参数备用
+        t.canDownloadList = lo.Filter(infoList, func(di *DocumentInfo, _ int) bool </span><span class="cov2" title="6">{ return di.CanDownload }</span>)
+        <span class="cov1" title="2">canDownloadCount := len(t.canDownloadList)
+        t.program = t.ProgramConstructor(calculateOverallProgress(canDownloadCount))
+        t.countDown = &amp;atomic.Int32{}
+        t.countDown.Store(int32(canDownloadCount))
+        t.completed = &amp;atomic.Bool{}
+        t.queue = make(chan *exportResult, 20)
+        t.wait = make(chan struct{})
+        t.exporter = &amp;exporter{client: t.Client, program: t.program, completed: t.completed}
+
+        // 开启下载UI程序
+        go func() </span><span class="cov1" title="2">{
+                // 下载UI程序退出就退出主程序
+                defer func() </span><span class="cov1" title="2">{
+                        t.Complete()
+                }</span>()
+                // 启动 BubbleTea
+                <span class="cov1" title="2">if _, err = t.program.Run(); err != nil </span><span class="cov1" title="1">{
+                        fmt.Println("下载UI程序运行出错:", err)
+                        return
+                }</span>
+                <span class="cov1" title="1">fmt.Println("退出下载UI程序")</span>
+        }()
+
+        // 开启5个协程同时创建导出任务
+        <span class="cov1" title="2">_ = t.exportDocuments()
+
+        // 开启3个协诚同时下载文件
+        _ = t.downloadDocuments()
+
+        // 等待中断触发或批量下载完成
+        &lt;-t.wait
+
+        return err</span>
+}
+
+func (t *TaskImpl) Close() <span class="cov1" title="1">{
+        if t.queue != nil </span><span class="cov1" title="1">{
+                close(t.queue)
+        }</span>
+        <span class="cov1" title="1">if t.wait != nil </span><span class="cov1" title="1">{
+                close(t.wait)
+        }</span>
+}
+
+func (t *TaskImpl) Interrupt() <span class="cov3" title="16">{
+        // 先关掉下载UI程序，再让它所在的goroutine退出时触发调用t.Complete()
+        t.program.Quit()
+}</span>
+
+func (t *TaskImpl) Complete() <span class="cov2" title="3">{
+        t.completed.Store(true)
+        t.wait &lt;- struct{}{}
+}</span>
+
+// exportDocuments 批量创建和检查导出任务。
+func (t *TaskImpl) exportDocuments() (completed *atomic.Bool) <span class="cov3" title="9">{
+        completed = &amp;atomic.Bool{}
+        lock := &amp;sync.Mutex{}
+        docIdx := -1
+        canDownloadCount := len(t.canDownloadList)
+        getNextDoc := func() *DocumentInfo </span><span class="cov4" title="40">{
+                lock.Lock()
+                defer lock.Unlock()
+                docIdx++
+                if docIdx &gt;= canDownloadCount </span><span class="cov4" title="34">{
+                        return nil
+                }</span>
+                <span class="cov2" title="6">return t.canDownloadList[docIdx]</span>
+        }
+        <span class="cov3" title="9">total := 5
+        doneCount := &amp;atomic.Int32{}
+        for i := 0; i &lt; total; i++ </span><span class="cov4" title="45">{
+                go func() </span><span class="cov4" title="45">{
+                        defer func() </span><span class="cov4" title="45">{
+                                // 如果所有协程都执行完了，则发送完成信号
+                                if doneCount.Add(1) == int32(total) </span><span class="cov3" title="9">{
+                                        completed.Store(true)
+                                }</span>
+                        }()
+                        <span class="cov4" title="45">for </span><span class="cov4" title="50">{
+                                if t.completed.Load() </span><span class="cov3" title="10">{
+                                        return
+                                }</span>
+                                <span class="cov4" title="40">di := getNextDoc()
+                                if di == nil </span><span class="cov4" title="34">{
+                                        return
+                                }</span>
+                                // 发送新文件到program
+                                <span class="cov2" title="6">fileName := di.GetFileName()
+                                t.program.Add(di.FilePath, fileName)
+
+                                if di.DownloadDirectly </span><span class="cov1" title="1">{
+                                        t.queue &lt;- &amp;exportResult{DocumentInfo: di, result: nil}
+                                        continue</span> // 注意这里是continue而不是return
+                                }
+
+                                // 创建导出任务
+                                <span class="cov2" title="5">ticket, err := t.exporter.doExport(di)
+                                if err != nil </span><span class="cov1" title="1">{
+                                        t.program.Update(di.FilePath, 0.05, progress.StatusFailed, cleanEnter(err))
+                                        t.countDown.Add(-1)
+                                        continue</span> // 注意这里是continue而不是return
+                                }
+                                <span class="cov2" title="4">t.program.Update(di.FilePath, 0.05, progress.StatusExporting)
+
+                                // 查询导出任务结果
+                                exportResult, status, err := t.exporter.checkExport(di, ticket)
+                                if err != nil </span><span class="cov1" title="1">{
+                                        t.program.Update(di.FilePath, 0.10, progress.StatusFailed, cleanEnter(err))
+                                        t.countDown.Add(-1)
+                                        continue</span> // 注意这里是continue而不是return
+                                }
+                                <span class="cov2" title="3">if status == progress.StatusInterrupted </span><span class="cov1" title="1">{
+                                        return
+                                }</span>
+                                <span class="cov1" title="2">t.program.Update(di.FilePath, 0.15, status)
+
+                                // 随机睡眠1到3秒
+                                app.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+
+                                t.program.Update(di.FilePath, 0.15, progress.StatusWaiting)
+                                t.queue &lt;- exportResult</span>
+                        }
+                }()
+        }
+        <span class="cov3" title="9">return completed</span>
+}
+
+// downloadDocuments 批量下载已导出的文件并显示下载进度。
+func (t *TaskImpl) downloadDocuments() (completed *atomic.Bool) <span class="cov2" title="7">{
+        completed = &amp;atomic.Bool{}
+        total := 3
+        doneCount := atomic.Int32{}
+        for range total </span><span class="cov3" title="21">{
+                go func() </span><span class="cov3" title="21">{
+                        defer func() </span><span class="cov3" title="21">{
+                                // 如果所有协程都执行完了，则发送完成信号
+                                if doneCount.Add(1) == int32(total) </span><span class="cov2" title="7">{
+                                        completed.Store(true)
+                                }</span>
+                        }()
+                        <span class="cov3" title="21">for </span><span class="cov10" title="9381">{
+                                if t.completed.Load() </span><span class="cov2" title="3">{
+                                        return
+                                }</span>
+                                <span class="cov9" title="9378">select </span>{
+                                case value, ok := &lt;-t.queue:<span class="cov3" title="8">
+                                        if !ok </span><span class="cov2" title="3">{
+                                                return
+                                        }</span>
+
+                                        // 开始下载文件，写入到saveDir目录中
+                                        <span class="cov2" title="5">var fileSize int64
+                                        var file io.Reader
+                                        var err error
+                                        if value.DownloadDirectly </span><span class="cov1" title="2">{
+                                                file, fileSize, err = t.exporter.doDownloadDirectly(value.FilePath, value.Token)
+                                        }</span> else<span class="cov2" title="3"> {
+                                                fileSize = int64(larkcore.IntValue(value.result.FileSize))
+                                                fileToken := larkcore.StringValue(value.result.FileToken)
+                                                file, err = t.exporter.doDownloadExported(value.FilePath, fileToken)
+                                        }</span>
+                                        <span class="cov2" title="5">if err != nil </span><span class="cov1" title="1">{
+                                                t.program.Update(value.FilePath, 0.18, progress.StatusFailed, cleanEnter(err))
+                                                t.countDown.Add(-1)
+                                                continue</span> // 注意这里是continue而不是return
+                                        }
+                                        <span class="cov2" title="4">t.program.Update(value.FilePath, 0.20, progress.StatusDownloading)
+
+                                        pw := &amp;progress.Writer{
+                                                FileKey:  value.Token,
+                                                FilePath: value.FilePath,
+                                                Program:  t.program,
+                                                Total:    fileSize,
+                                                Walked:   0.2,
+                                        }
+                                        if err = pw.WriteFile(file); err != nil </span><span class="cov1" title="2">{
+                                                t.program.Update(value.FilePath, pw.Progress(), progress.StatusFailed, cleanEnter(err))
+                                                t.countDown.Add(-1)
+                                                continue</span> // 注意这里是continue而不是return
+                                        }
+                                        <span class="cov1" title="2">t.program.Update(value.FilePath, pw.Progress(), progress.StatusCompleted)
+
+                                        // 随机睡眠1到3秒
+                                        app.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+                                        t.countDown.Add(-1)</span>
+                                default:<span class="cov9" title="9370">
+                                        if t.countDown.Load() &lt;= 0 </span><span class="cov3" title="15">{
+                                                if t.Client.GetArgs().QuitAutomatically </span><span class="cov3" title="15">{
+                                                        // 随机睡眠1到3秒
+                                                        app.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+                                                        t.Interrupt()
+                                                }</span>
+                                                <span class="cov3" title="15">return</span>
+                                        }
+                                }
+                        }
+                }()
+        }
+        <span class="cov2" title="7">return completed</span>
+}
+
+// calculateOverallProgress 计算整体进度。
+func calculateOverallProgress(canDownloadCount int) progress.Stats <span class="cov2" title="6">{
+        // 创建下载UI程序备用
+        totalProgress := teaProgress.New(
+                teaProgress.WithDefaultGradient(), // 使用默认渐变颜色
+                teaProgress.WithWidth(60),         // 设置进度条宽度
+        ) // 整体进度
+        return func(total, downloaded, failed int) string </span><span class="cov2" title="4">{
+                remaining := total - downloaded - failed
+                statsInfo := fmt.Sprintf("可下载: %d, 已提交: %d, 已下载: %d, 未下载: %d, 已失败: %d", canDownloadCount, total, downloaded, remaining, failed)
+                tp := totalProgress.ViewAs(float64(downloaded+failed) / float64(canDownloadCount))
+                return progress.TipsStyle.Render(statsInfo) + "\n" + tp
+        }</span>
+}
+
+// toErrMsg 将错误转换为错误信息。
+func toErrMsg(err error, operation string) string <span class="cov2" title="6">{
+        logID := getLogID(err)
+        errMsg := cleanEnter(err)
+        if logID == "" </span><span class="cov1" title="1">{
+                return fmt.Sprintf("响应错误: %s", errMsg)
+        }</span>
+        <span class="cov2" title="5">return fmt.Sprintf("logId: %s, 操作: %s, 响应错误: %s", logID, operation, errMsg)</span>
+}
+
+// cleanEnter 清除换行符。
+func cleanEnter(err error) string <span class="cov3" title="13">{
+        return strings.ReplaceAll(err.Error(), "\n", " ")
+}</span>
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package progress
+
+import (
+        "fmt"
+        "math/rand"
+        "time"
+
+        "github.com/charmbracelet/lipgloss"
+        "github.com/samber/oops"
+        "github.com/spf13/cast"
+
+        "github.com/acyumi/xdoc/component/app"
+        "github.com/acyumi/xdoc/component/cloud"
+)
+
+type TestClient struct {
+        p IProgram
+}
+
+func NewTestClient() cloud.Client[any] <span class="cov1" title="1">{
+        // 创建模型
+        testClient := &amp;TestClient{p: NewProgram(nil)}
+        testClient.SetArgs(nil)
+        return testClient
+}</span>
+
+func (c *TestClient) SetArgs(_ any) {<span class="cov1" title="1">}</span>
+
+func (c *TestClient) GetArgs() any <span class="cov1" title="1">{
+        return nil
+}</span>
+
+func (c *TestClient) Validate() error <span class="cov1" title="1">{
+        return nil
+}</span>
+
+func (c *TestClient) DownloadDocuments(dss []*cloud.DocumentSource) error <span class="cov1" title="2">{
+        if len(dss) == 0 </span><span class="cov1" title="1">{
+                return oops.New("文档源为空")
+        }</span>
+        <span class="cov1" title="1">return testProgramAddUpdate(c.p)</span>
+}
+
+// 模拟下载任务。
+func downloadTask(index int, p IProgram) <span class="cov4" title="12">{
+        for i := 1; i &lt;= 100; i++ </span><span class="cov10" title="1200">{
+                var style = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color(cast.ToString(i)))
+                app.Sleep(time.Duration(rand.Intn(3000)) * time.Millisecond) // 模拟下载延迟
+                link := style.Render(fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", "https://baidu.com", "ctrl+单击查看问题"))
+                p.Update(fmt.Sprintf("f%d", index), float64(i)/100.0, StatusDownloading, link)
+        }</span>
+}
+
+// 模拟动态增加文件。
+func addFileTask(p IProgram) <span class="cov1" title="1">{
+        for i := 0; i &lt; 100; i++ </span><span class="cov6" title="100">{
+                app.Sleep(1 * time.Second) // 模拟动态增加文件的延迟
+                p.Add(fmt.Sprintf("add%d", i), fmt.Sprintf("新增文件%d.docx", i))
+        }</span>
+}
+
+// testProgramAddUpdate 测试框架看不到控制台的效果，所以通过main函数运行。
+func testProgramAddUpdate(p IProgram) error <span class="cov1" title="1">{
+        fileNames := []string{
+                "file1.txt",
+                "这是一个非常长的中文文件名超过20个字符.txt",
+                "中等长度的中文文件名.txt",
+                "短.txt",
+                "另一个超长的中文文件名示例.doc",
+                "测试文件.zip",
+                "图片.png",
+                "文档.pdf",
+                "数据.csv",
+                "压缩包1.tar.gz",
+                "压缩包2.tar.gz",
+                "压缩包3.tar.gz",
+        }
+
+        // 启动多个下载任务
+        for i := 0; i &lt; len(fileNames); i++ </span><span class="cov4" title="12">{
+                p.Add(fmt.Sprintf("f%d", i), fileNames[i])
+        }</span>
+        <span class="cov1" title="1">for i := 0; i &lt; len(fileNames); i++ </span><span class="cov4" title="12">{
+                go downloadTask(i, p)
+        }</span>
+
+        // 启动动态增加文件任务
+        <span class="cov1" title="1">go addFileTask(p)
+
+        // 启动 BubbleTea
+        _, err := p.Run()
+        if err != nil </span><span class="cov1" title="1">{
+                fmt.Println("Error running program:", err)
+        }</span>
+        <span class="cov1" title="1">return oops.Wrap(err)</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package progress
+
+import (
+        "fmt"
+        "runtime"
+        "sync/atomic"
+
+        "github.com/charmbracelet/bubbles/progress"
+        "github.com/charmbracelet/bubbles/viewport"
+        "github.com/charmbracelet/bubbletea"
+        "github.com/charmbracelet/lipgloss"
+        "github.com/spf13/cast"
+
+        "github.com/acyumi/xdoc/component/constant"
+)
+
+const (
+        viewportWith   = 100 // 滚动视图宽度
+        viewportHeight = 20  // 滚动视图高度
+        progressWidth  = 20  // 进度条宽度
+
+        StatusAdded       Status = "a"
+        StatusExporting   Status = "x"
+        StatusExported    Status = "p"
+        StatusWaiting     Status = "w"
+        StatusDownloading Status = "d"
+        StatusCompleted   Status = "c"
+        StatusFailed      Status = "f"
+        StatusInterrupted Status = "i"
+)
+
+var (
+        TipsStyle          = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+        GreenStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+        OrangeStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+        BlueUnderlineStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("4")).Underline(true)
+        URLStyleRender     = func(url string) string <span class="cov1" title="1">{
+                styledURL := BlueUnderlineStyle.Render(url)
+                // 包裹OSC 8转义码以支持可点击链接
+                // \x1b]8;;&lt;URL&gt;\x1b\\ 开始链接，\x1b]8;;\x1b\\ 结束链接
+                return fmt.Sprintf("\x1b]8;;%s\x1b\\", styledURL)
+        }</span>
+)
+
+type (
+        program struct {
+                *tea.Program
+        }
+
+        // model 下载进度模型。
+        model struct {
+                executed   *atomic.Bool
+                pm         map[string]*progressStatus // 进度map，用于通过key取出指定的进度进行更新
+                progresses []*progressStatus          // 进度列表，用于在滚动视图中按顺序渲染进度条
+                viewport   viewport.Model             // 滚动视图
+                stats      Stats                      // 获取统计信息函数，用于在顶部显示
+        }
+
+        // Status 文件导出和下载状态。
+        Status string
+
+        // progressStatus 下载进度及状态。
+        progressStatus struct {
+                fileName string          // 文件的名称
+                status   Status          // 文件的下载状态
+                progress *progress.Model // 文件的进度条
+                msg      string          // 自定义消息，用于每一行下载记录的最右侧
+        }
+
+        // Stats 文件数量统计函数。
+        Stats func(total, downloaded, failed int) string
+
+        // addMsg 自定义消息类型，用于动态增加文件。
+        addMsg struct {
+                key      string // 自定义文件唯一标识
+                fileName string // 文件名
+        }
+
+        // updateMsg 自定义消息类型，用于更新进度。
+        updateMsg struct {
+                key      string  // 自定义文件唯一标识
+                progress float64 // 下载进度 0.0-&gt;1.0
+                // 状态，根据需要自定义，下面是示例
+                // 正常下载：a added -&gt; x exporting -&gt; p exported -&gt; w waiting -&gt; d downloading -&gt; c completed
+                // 下载失败：a added -&gt; x exporting -&gt; p exported -&gt; w waiting -&gt; d downloading -&gt; f failed
+                // 导出失败：a added -&gt; x exporting -&gt; f failed
+                status Status
+                msg    string // 自定义消息，用于每一行下载记录的最右侧
+        }
+)
+
+func NewProgram(stats Stats) IProgram <span class="cov1" title="1">{
+        // 创建模型
+        m := newModel(stats)
+        // 创建 BubbleTea 程序
+        return &amp;program{
+                Program: tea.NewProgram(m),
+        }
+}</span>
+
+// Add 添加新的待下载文件。
+func (p *program) Add(key, fileName string) <span class="cov1" title="1">{
+        go p.Send(addMsg{key: key, fileName: fileName})
+}</span>
+
+// Update 更新文件下载进度。
+func (p *program) Update(key string, progress float64, status Status, msgFormat ...any) <span class="cov5" title="4">{
+        var msg string
+        if len(msgFormat) &gt; 0 </span><span class="cov5" title="4">{
+                msg = fmt.Sprintf(cast.ToString(msgFormat[0]), msgFormat[1:]...)
+        }</span>
+        <span class="cov5" title="4">go p.Send(updateMsg{key: key, progress: progress, status: status, msg: msg})</span>
+}
+
+func newModel(stats Stats) *model <span class="cov8" title="12">{
+        m := &amp;model{
+                executed:   &amp;atomic.Bool{},
+                pm:         make(map[string]*progressStatus),
+                progresses: make([]*progressStatus, 0),
+                viewport:   viewport.New(viewportWith, viewportHeight), // 初始化滚动视图
+                stats:      stats,
+        }
+        return m
+}</span>
+
+// Init 初始化模型。
+func (m *model) Init() tea.Cmd <span class="cov4" title="3">{
+        return nil
+}</span>
+
+// Update 更新逻辑。
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) <span class="cov8" title="10">{
+        switch msg := msg.(type) </span>{
+        case tea.KeyMsg:<span class="cov3" title="2">
+                // 按 q 或 ctrl+c 或 Esc 退出
+                if msg.String() == "q" || msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyEsc </span><span class="cov1" title="1">{
+                        fmt.Println(TipsStyle.Render("\n=&gt; ") + OrangeStyle.Render("已退出") + TipsStyle.Render(" &lt;=\n"))
+                        return m, tea.Quit
+                }</span>
+        case updateMsg:<span class="cov6" title="6">
+                // 更新指定文件的下载进度
+                mp, ok := m.pm[msg.key]
+                if !ok </span><span class="cov1" title="1">{
+                        return m, nil
+                }</span>
+                <span class="cov5" title="5">mp.status = msg.status
+                mp.msg = msg.msg
+                mp.progress.SetPercent(msg.progress)
+                if msg.progress &gt;= 1.0 </span><span class="cov1" title="1">{
+                        mp.status = StatusCompleted
+                        mp.progress.PercentageStyle = GreenStyle
+                }</span>
+                // 更新视图内容
+                <span class="cov5" title="5">m.viewport.SetContent(m.renderContent())
+                return m, nil</span>
+        case addMsg:<span class="cov3" title="2">
+                return m.handleAddMsg(msg)</span>
+        }
+
+        // 处理滚动视图的更新
+        <span class="cov1" title="1">var cmd tea.Cmd
+        m.viewport, cmd = m.viewport.Update(msg)
+        return m, cmd</span>
+}
+
+func (m *model) handleAddMsg(msg addMsg) (tea.Model, tea.Cmd) <span class="cov6" title="7">{
+        // 动态增加文件
+        pm := progress.New(
+                progress.WithDefaultGradient(),
+                progress.WithWidth(progressWidth),
+        )
+        p := &amp;progressStatus{fileName: msg.fileName, status: StatusAdded, progress: &amp;pm}
+        m.pm[msg.key] = p
+        m.progresses = append(m.progresses, p)
+        // 更新视图内容
+        m.viewport.SetContent(m.renderContent())
+        // 检查是否在底部，如果是，则在添加文件时滚动到底部
+        if !m.viewport.PastBottom() &amp;&amp; (m.viewport.ScrollPercent() &gt; 0.9 ||
+                m.viewport.YOffset+m.viewport.VisibleLineCount()+2 &gt;= m.viewport.TotalLineCount()) </span><span class="cov6" title="7">{
+                m.viewport.GotoBottom()
+        }</span>
+        <span class="cov6" title="7">return m, nil</span>
+}
+
+// View 渲染界面。
+func (m *model) View() string <span class="cov9" title="15">{
+        defer m.executed.Store(true)
+        // TODO 添加大标题，如："Acyumi Feishu Doc Exporter"
+        // 更新统计信息
+        statsInfo := m.renderStats()
+        return fmt.Sprintf("\n%s\n\n%s%s", statsInfo, m.viewport.View(), m.helpView())
+}</span>
+
+// renderStats 渲染统计信息。
+func (m *model) renderStats() string <span class="cov10" title="19">{
+        total := len(m.progresses)
+        downloaded := 0
+        failed := 0
+        for _, p := range m.progresses </span><span class="cov9" title="15">{
+                if p.status == StatusCompleted </span><span class="cov3" title="2">{
+                        downloaded++
+                }</span> else<span class="cov8" title="13"> if p.status == StatusFailed </span><span class="cov3" title="2">{
+                        failed++
+                }</span>
+        }
+        <span class="cov10" title="19">if m.stats != nil </span><span class="cov1" title="1">{
+                return m.stats(total, downloaded, failed)
+        }</span>
+        <span class="cov9" title="18">remaining := total - downloaded - failed
+        statsInfo := fmt.Sprintf("总数量: %d, 已下载: %d, 未下载: %d, 已失败: %d", total, downloaded, remaining, failed)
+        return TipsStyle.Render(statsInfo)</span>
+}
+
+func (m *model) helpView() string <span class="cov9" title="16">{
+        var tips string
+        // 如果是windows系统，则显示提示信息
+        if runtime.GOOS == constant.Windows </span><span class="cov0" title="0">{
+                tips += "     =&gt; windows系统下，如果进度条没有色彩，请切换使用 PowerShell 或 cmd\n"
+        }</span>
+        <span class="cov9" title="16">tips = "\ntips =&gt; 鼠标滚轮/↑/↓: 上下滚动视图 • q/esc/ctrl+c: 退出\n" + tips
+        return TipsStyle.Render(tips)</span>
+}
+
+// renderContent 渲染内容。
+func (m *model) renderContent() (view string) <span class="cov9" title="14">{
+        // 显示每个文件的下载进度（进度条）
+        for _, p := range m.progresses </span><span class="cov9" title="14">{
+                progressBlock := p.progress.ViewAs(p.progress.Percent())
+                if p.msg == "" </span><span class="cov7" title="8">{
+                        view += fmt.Sprintf("%s: [%s] %s\n", progressBlock, p.status, p.fileName)
+                        continue</span>
+                }
+                <span class="cov6" title="6">view += fmt.Sprintf("%s: [%s] %s (%s)\n", progressBlock, p.status, p.fileName, p.msg)</span>
+        }
+
+        // 如果全部文件下载完成，显示提示信息
+        <span class="cov9" title="14">total := len(m.progresses)
+        completed := 0
+        for _, p := range m.progresses </span><span class="cov9" title="14">{
+                if p.status == StatusCompleted || p.status == StatusFailed </span><span class="cov3" title="2">{
+                        completed++
+                }</span>
+        }
+        <span class="cov9" title="14">if completed == total </span><span class="cov3" title="2">{
+                view += "\n" + GreenStyle.Render("全部文件已经下载完成，请按 q 或 esc 或 ctrl+c 退出")
+        }</span>
+        <span class="cov9" title="14">return view</span>
+}
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">// Copyright 2025 acyumi &lt;417064257@qq.com&gt;
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package progress
+
+import (
+        "io"
+        "os"
+        "path/filepath"
+
+        "github.com/samber/oops"
+
+        "github.com/acyumi/xdoc/component/app"
+)
+
+type Writer struct {
+        FileKey  string   // 文件key
+        FilePath string   // 文件写入路径
+        Program  IProgram // 程序，显示进度
+        Total    int64    // 文件总大小
+        Wrote    int64    // 文件已写盘大小
+        Walked   float64  // 文件写盘前进度条已走过的占比，如 0.2
+}
+
+func (pw *Writer) WriteFile(reader io.Reader) error <span class="cov10" title="4">{
+        // 创建目录
+        dirPath := filepath.Dir(pw.FilePath)
+        err := app.Fs.MkdirAll(dirPath, 0o755)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        // 保存文件
+        <span class="cov8" title="3">file, err := app.Fs.OpenFile(pw.FilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+        if err != nil </span><span class="cov1" title="1">{
+                return oops.Wrap(err)
+        }</span>
+        // 将数据写入文件，同时更新进度
+        <span class="cov5" title="2">teeReader := io.TeeReader(reader, pw)
+        _, err = io.Copy(file, teeReader)
+        if er := file.Close(); er != nil &amp;&amp; err == nil </span><span class="cov1" title="1">{
+                err = er
+        }</span>
+        <span class="cov5" title="2">return oops.Wrap(err)</span>
+}
+
+// Write 实现了 io.Writer 接口。
+func (pw *Writer) Write(p []byte) (int, error) <span class="cov5" title="2">{
+        n := len(p)
+        pw.Wrote += int64(n)
+        pg := pw.Progress()
+        // 更新进度
+        pw.Program.Update(pw.FilePath, pg, StatusDownloading, "total: %d, wrote: %d", pw.Total, pw.Wrote)
+        return n, nil
+}</span>
+
+func (pw *Writer) Progress() float64 <span class="cov5" title="2">{
+        return pw.Walked + float64(pw.Wrote)/float64(pw.Total)*(1.0-pw.Walked)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
